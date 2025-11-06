@@ -105,7 +105,5 @@ export default function NewEventPage() {
             </Card>
           </div>
         </div>
-      </div>
-    </div>
   )
 }

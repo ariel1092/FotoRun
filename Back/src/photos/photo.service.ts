@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Photo } from './photo.entity';
 import { Detection } from '../detection/entities/detection.entity';
 import { RoboflowService } from '../roboflow/roboflow.service';
@@ -141,9 +141,9 @@ export class PhotosService {
           ocrMetadata: enhanced.ocrResult
             ? {
                 rawText: enhanced.ocrResult.rawText,
-                alternatives: enhanced.ocrResult.alternatives,
+                alternatives: enhanced.ocrResult.alternatives || [],
               }
-            : null,
+            : undefined,
         });
 
         await this.detectionRepository.save(detection);
@@ -280,11 +280,33 @@ export class PhotosService {
   }
 
   async findAllByPhotographer(photographerId: string): Promise<Photo[]> {
-    return await this.photoRepository.find({
-      where: { uploadedBy: photographerId },
-      relations: ['detections', 'race'],
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      this.logger.log(`Finding all photos for photographer: ${photographerId}`);
+      // Cargar fotos sin la relación detections para evitar problemas con columnas faltantes
+      const photos = await this.photoRepository.find({
+        where: { uploadedBy: photographerId },
+        order: { createdAt: 'DESC' },
+      });
+      
+      // Si necesitamos las detecciones, las cargamos por separado
+      if (photos.length > 0) {
+        const photoIds = photos.map(p => p.id);
+        const detections = await this.detectionRepository.find({
+          where: { photoId: In(photoIds) },
+        });
+        
+        // Asignar detecciones a las fotos
+        photos.forEach(photo => {
+          photo.detections = detections.filter(d => d.photoId === photo.id);
+        });
+      }
+      
+      this.logger.log(`Found ${photos.length} photos for photographer: ${photographerId}`);
+      return photos;
+    } catch (error) {
+      this.logger.error(`Error finding photos for photographer ${photographerId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async remove(id: string): Promise<void> {
@@ -332,43 +354,53 @@ export class PhotosService {
     totalDetections: number;
     photosByRace: Array<{ raceId: string; raceName: string; count: number }>;
   }> {
-    const totalPhotos = await this.photoRepository.count({
-      where: { uploadedBy: photographerId },
-    });
+    try {
+      this.logger.log(`Getting stats for photographer: ${photographerId}`);
+      
+      const totalPhotos = await this.photoRepository.count({
+        where: { uploadedBy: photographerId },
+      });
 
-    const processedPhotos = await this.photoRepository.count({
-      where: { uploadedBy: photographerId, isProcessed: true },
-    });
+      const processedPhotos = await this.photoRepository.count({
+        where: { uploadedBy: photographerId, isProcessed: true },
+      });
 
-    const pendingPhotos = totalPhotos - processedPhotos;
+      const pendingPhotos = totalPhotos - processedPhotos;
 
-    const totalDetections = await this.detectionRepository
-      .createQueryBuilder('detection')
-      .innerJoin('detection.photo', 'photo')
-      .where('photo.uploadedBy = :photographerId', { photographerId })
-      .getCount();
+      const totalDetections = await this.detectionRepository
+        .createQueryBuilder('detection')
+        .innerJoin('detection.photo', 'photo')
+        .where('photo.uploadedBy = :photographerId', { photographerId })
+        .getCount();
 
-    const photosByRace = await this.photoRepository
-      .createQueryBuilder('photo')
-      .select('photo.raceId', 'raceId')
-      .addSelect('race.name', 'raceName')
-      .addSelect('COUNT(photo.id)', 'count')
-      .innerJoin('photo.race', 'race')
-      .where('photo.uploadedBy = :photographerId', { photographerId })
-      .groupBy('photo.raceId')
-      .addGroupBy('race.name')
-      .getRawMany();
+      const photosByRace = await this.photoRepository
+        .createQueryBuilder('photo')
+        .select('photo.raceId', 'raceId')
+        .addSelect('COALESCE(race.name, \'Sin nombre\')', 'raceName')
+        .addSelect('COUNT(photo.id)', 'count')
+        .leftJoin('photo.race', 'race')
+        .where('photo.uploadedBy = :photographerId', { photographerId })
+        .groupBy('photo.raceId')
+        .addGroupBy('race.name')
+        .getRawMany();
 
-    return {
-      totalPhotos,
-      processedPhotos,
-      pendingPhotos,
-      totalDetections,
-      photosByRace: photosByRace.map((item) => ({
-        raceId: item.raceId,
-        raceName: item.raceName || 'Sin nombre',
-        count: parseInt(item.count, 10),
-      })),
-    };
+      const result = {
+        totalPhotos,
+        processedPhotos,
+        pendingPhotos,
+        totalDetections,
+        photosByRace: photosByRace.map((item) => ({
+          raceId: item.raceId,
+          raceName: item.raceName || 'Sin nombre',
+          count: parseInt(item.count, 10),
+        })),
+      };
+
+      this.logger.log(`Stats retrieved successfully for photographer: ${photographerId}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error getting stats for photographer ${photographerId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }
