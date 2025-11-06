@@ -1,0 +1,374 @@
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Photo } from './photo.entity';
+import { Detection } from '../detection/entities/detection.entity';
+import { RoboflowService } from '../roboflow/roboflow.service';
+import { StorageService } from '../storage/storage.service';
+import { BibDetectionService } from '../detection/bib-detection.service';
+import axios from 'axios';
+
+@Injectable()
+export class PhotosService {
+  private readonly logger = new Logger(PhotosService.name);
+
+  constructor(
+    @InjectRepository(Photo)
+    private readonly photoRepository: Repository<Photo>,
+    @InjectRepository(Detection)
+    private readonly detectionRepository: Repository<Detection>,
+    private readonly roboflowService: RoboflowService,
+    private readonly storageService: StorageService,
+    private readonly bibDetectionService: BibDetectionService,
+  ) {}
+
+  async create(data: {
+    url: string;
+    thumbnailUrl?: string;
+    filename: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    raceId: string;
+    uploadedBy: string;
+  }): Promise<Photo> {
+    const photo = this.photoRepository.create(data);
+    return await this.photoRepository.save(photo);
+  }
+
+  /**
+   * Upload a photo to Supabase Storage and create database record
+   */
+  async uploadPhoto(
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    size: number,
+    raceId: string,
+    uploadedBy: string,
+  ): Promise<Photo> {
+    try {
+      this.logger.log(`Uploading photo: ${originalName}`);
+
+      // Generate unique filename
+      const ext = originalName.split('.').pop() || 'jpg';
+      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+
+      // Upload photo and generate thumbnail
+      const { photo: uploadResult, thumbnail: thumbnailResult } =
+        await this.storageService.uploadPhotoWithThumbnail(
+          buffer,
+          filename,
+          mimeType,
+        );
+
+      // Create database record
+      const photo = await this.create({
+        url: uploadResult.publicUrl,
+        thumbnailUrl: thumbnailResult.publicUrl,
+        filename: uploadResult.path,
+        originalName,
+        mimeType,
+        size,
+        raceId,
+        uploadedBy,
+      });
+
+      // Set initial processing status
+      photo.processingStatus = 'pending';
+      await this.photoRepository.save(photo);
+
+      this.logger.log(`Photo uploaded successfully: ${photo.id}`);
+      return photo;
+    } catch (error) {
+      this.logger.error(`Error uploading photo: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async processPhoto(photoId: string, photoUrl: string): Promise<void> {
+    try {
+      this.logger.log(`Processing photo: ${photoId}`);
+
+      const photo = await this.photoRepository.findOne({
+        where: { id: photoId },
+      });
+
+      if (!photo) {
+        throw new NotFoundException(`Photo with ID ${photoId} not found`);
+      }
+
+      // Download image from Supabase Storage URL
+      const imageResponse = await axios.get(photoUrl, {
+        responseType: 'arraybuffer',
+      });
+      const imageBuffer = Buffer.from(imageResponse.data, 'binary');
+
+      // Detect bib numbers with enhanced processing
+      const enhancedDetections = await this.bibDetectionService.detectBibNumbers(
+        imageBuffer,
+        {
+          minDetectionConfidence: 0.5,
+          minOCRConfidence: 0.6,
+          useOCR: true,
+          enhanceImage: true,
+          ocrFallback: true,
+        },
+      );
+
+      this.logger.log(
+        `Found ${enhancedDetections.length} enhanced detections for photo ${photoId}`,
+      );
+
+      // Save detections to database
+      for (const enhanced of enhancedDetections) {
+        const detection = this.detectionRepository.create({
+          photoId: photo.id,
+          bibNumber: enhanced.bibNumber,
+          confidence: enhanced.confidence,
+          detectionConfidence: enhanced.detectionConfidence,
+          ocrConfidence: enhanced.ocrConfidence,
+          detectionMethod: enhanced.metadata.method,
+          x: enhanced.x,
+          y: enhanced.y,
+          width: enhanced.width,
+          height: enhanced.height,
+          metadata: {
+            class_id: enhanced.metadata.class_id,
+            detection_id: enhanced.metadata.detection_id,
+            method: enhanced.metadata.method,
+          },
+          ocrMetadata: enhanced.ocrResult
+            ? {
+                rawText: enhanced.ocrResult.rawText,
+                alternatives: enhanced.ocrResult.alternatives,
+              }
+            : null,
+        });
+
+        await this.detectionRepository.save(detection);
+      }
+
+      // Update photo status
+      photo.isProcessed = true;
+      photo.processedAt = new Date();
+      photo.processingStatus = 'completed';
+      photo.processingError = null;
+      await this.photoRepository.save(photo);
+
+      this.logger.log(`Photo ${photoId} processed successfully`);
+    } catch (error) {
+      this.logger.error(`Error processing photo ${photoId}: ${error.message}`);
+      
+      // Update photo status to failed
+      try {
+        const photo = await this.photoRepository.findOne({
+          where: { id: photoId },
+        });
+        if (photo) {
+          photo.processingStatus = 'failed';
+          photo.processingError = error.message;
+          await this.photoRepository.save(photo);
+        }
+      } catch (updateError) {
+        this.logger.error(
+          `Failed to update photo status to failed: ${updateError.message}`,
+        );
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Update photo processing status
+   */
+  async updateProcessingStatus(
+    photoId: string,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    error?: string,
+  ): Promise<void> {
+    const photo = await this.photoRepository.findOne({
+      where: { id: photoId },
+    });
+
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${photoId} not found`);
+    }
+
+    photo.processingStatus = status;
+    if (status === 'completed') {
+      photo.isProcessed = true;
+      photo.processedAt = new Date();
+      photo.processingError = null;
+    } else if (status === 'failed') {
+      photo.processingError = error || null;
+    } else if (status === 'processing') {
+      photo.processingError = null;
+    }
+
+    await this.photoRepository.save(photo);
+    this.logger.log(`Photo ${photoId} status updated to: ${status}`);
+  }
+
+  /**
+   * Get photo processing status
+   */
+  async getProcessingStatus(
+    photoId: string,
+  ): Promise<{
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    error?: string | null;
+    isProcessed: boolean;
+    processedAt?: Date | null;
+  }> {
+    const photo = await this.photoRepository.findOne({
+      where: { id: photoId },
+      select: ['id', 'processingStatus', 'processingError', 'isProcessed', 'processedAt'],
+    });
+
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${photoId} not found`);
+    }
+
+    return {
+      status: photo.processingStatus,
+      error: photo.processingError,
+      isProcessed: photo.isProcessed,
+      processedAt: photo.processedAt,
+    };
+  }
+
+  async findByBibNumber(bibNumber: string): Promise<Photo[]> {
+    return await this.photoRepository
+      .createQueryBuilder('photo')
+      .innerJoin('photo.detections', 'detection')
+      .where('detection.bibNumber = :bibNumber', { bibNumber })
+      .andWhere('photo.isProcessed = :isProcessed', { isProcessed: true })
+      .leftJoinAndSelect('photo.race', 'race')
+      .leftJoinAndSelect('photo.detections', 'allDetections')
+      .orderBy('photo.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async findByRace(raceId: string): Promise<Photo[]> {
+    return await this.photoRepository.find({
+      where: { raceId },
+      relations: ['detections', 'race'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findOne(id: string): Promise<Photo> {
+    const photo = await this.photoRepository.findOne({
+      where: { id },
+      relations: ['detections', 'race', 'uploader'],
+    });
+
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${id} not found`);
+    }
+
+    return photo;
+  }
+
+  async findAll(): Promise<Photo[]> {
+    return await this.photoRepository.find({
+      relations: ['detections', 'race'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findAllByPhotographer(photographerId: string): Promise<Photo[]> {
+    return await this.photoRepository.find({
+      where: { uploadedBy: photographerId },
+      relations: ['detections', 'race'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    const photo = await this.photoRepository.findOne({
+      where: { id },
+    });
+
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${id} not found`);
+    }
+
+    // Delete from Supabase Storage
+    try {
+      if (photo.filename) {
+        await this.storageService.delete(photo.filename);
+        this.logger.log(`Photo deleted from storage: ${photo.filename}`);
+      }
+
+      // Delete thumbnail if exists
+      if (photo.thumbnailUrl) {
+        const thumbnailPath = photo.thumbnailUrl.split('/').pop();
+        if (thumbnailPath) {
+          await this.storageService.delete(`thumbnails/${thumbnailPath}`);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Error deleting photo from storage (continuing with DB deletion): ${error.message}`,
+      );
+    }
+
+    // Delete from database
+    const result = await this.photoRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Photo with ID ${id} not found`);
+    }
+
+    this.logger.log(`Photo deleted successfully: ${id}`);
+  }
+
+  async getStats(photographerId: string): Promise<{
+    totalPhotos: number;
+    processedPhotos: number;
+    pendingPhotos: number;
+    totalDetections: number;
+    photosByRace: Array<{ raceId: string; raceName: string; count: number }>;
+  }> {
+    const totalPhotos = await this.photoRepository.count({
+      where: { uploadedBy: photographerId },
+    });
+
+    const processedPhotos = await this.photoRepository.count({
+      where: { uploadedBy: photographerId, isProcessed: true },
+    });
+
+    const pendingPhotos = totalPhotos - processedPhotos;
+
+    const totalDetections = await this.detectionRepository
+      .createQueryBuilder('detection')
+      .innerJoin('detection.photo', 'photo')
+      .where('photo.uploadedBy = :photographerId', { photographerId })
+      .getCount();
+
+    const photosByRace = await this.photoRepository
+      .createQueryBuilder('photo')
+      .select('photo.raceId', 'raceId')
+      .addSelect('race.name', 'raceName')
+      .addSelect('COUNT(photo.id)', 'count')
+      .innerJoin('photo.race', 'race')
+      .where('photo.uploadedBy = :photographerId', { photographerId })
+      .groupBy('photo.raceId')
+      .addGroupBy('race.name')
+      .getRawMany();
+
+    return {
+      totalPhotos,
+      processedPhotos,
+      pendingPhotos,
+      totalDetections,
+      photosByRace: photosByRace.map((item) => ({
+        raceId: item.raceId,
+        raceName: item.raceName || 'Sin nombre',
+        count: parseInt(item.count, 10),
+      })),
+    };
+  }
+}
