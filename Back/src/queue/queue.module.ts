@@ -1,14 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { PhotoProcessor } from './processors/photo.processor';
 import { QueueService } from './queue.service';
-import { PhotosModule } from '../photos/photos.module';
-
-export const PHOTO_PROCESSING_QUEUE = 'photo-processing';
+import { PhotoProcessingModule } from './photo-processing.module';
+import { PHOTO_PROCESSING_QUEUE } from './queue.constants';
 
 @Module({
   imports: [
+    ConfigModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -20,22 +19,19 @@ export const PHOTO_PROCESSING_QUEUE = 'photo-processing';
           db: configService.get<number>('REDIS_DB', 0),
         },
         defaultJobOptions: {
-          removeOnComplete: 100, // Keep last 100 completed jobs
-          removeOnFail: 500, // Keep last 500 failed jobs
-          attempts: 3, // Retry 3 times
-          backoff: {
-            type: 'exponential',
-            delay: 2000, // Start with 2 seconds delay
-          },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
         },
       }),
     }),
     BullModule.registerQueue({
       name: PHOTO_PROCESSING_QUEUE,
     }),
-    PhotosModule,
+    forwardRef(() => PhotoProcessingModule),
   ],
-  providers: [PhotoProcessor, QueueService],
+  providers: [QueueService],
   exports: [BullModule, QueueService],
 })
 export class QueueModule {}

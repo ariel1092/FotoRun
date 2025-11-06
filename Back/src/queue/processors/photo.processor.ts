@@ -1,8 +1,8 @@
 import { Processor, Process } from '@nestjs/bull';
-import { Job } from 'bull';
-import { Logger, Injectable } from '@nestjs/common';
-import { PhotosService } from '../../photos/photos.service';
-import { PHOTO_PROCESSING_QUEUE } from '../queue.module';
+import type { Job } from 'bull';
+import { Logger, Injectable, Inject, forwardRef } from '@nestjs/common';
+import { PhotosService } from '../../photos/photo.service';
+import { PHOTO_PROCESSING_QUEUE } from '../queue.constants';
 
 export interface PhotoProcessingJobData {
   photoId: string;
@@ -14,7 +14,10 @@ export interface PhotoProcessingJobData {
 export class PhotoProcessor {
   private readonly logger = new Logger(PhotoProcessor.name);
 
-  constructor(private readonly photosService: PhotosService) {}
+  constructor(
+    @Inject(forwardRef(() => PhotosService))
+    private readonly photosService: PhotosService,
+  ) {}
 
   @Process({
     name: 'process-photo',
@@ -71,17 +74,30 @@ export class PhotoProcessor {
       `Processing batch of ${photos.length} photos (Job ${job.id})`,
     );
 
-    const results = [];
-    const errors = [];
+    const results: Array<{ photoId: string; success: boolean }> = [];
+    const errors: Array<{ photoId: string; error: string }> = [];
 
     for (const photoData of photos) {
       try {
-        await this.handlePhotoProcessing({
-          ...job,
-          data: photoData,
-        } as Job<PhotoProcessingJobData>);
+        // Process each photo individually
+        await this.photosService.updateProcessingStatus(photoData.photoId, 'processing');
+        await this.photosService.processPhoto(photoData.photoId, photoData.photoUrl);
+        await this.photosService.updateProcessingStatus(photoData.photoId, 'completed');
+        
         results.push({ photoId: photoData.photoId, success: true });
-      } catch (error) {
+      } catch (error: any) {
+        this.logger.error(
+          `Error processing photo ${photoData.photoId}: ${error.message}`,
+        );
+        
+        await this.photosService.updateProcessingStatus(photoData.photoId, 'failed', error.message).catch(
+          (err) => {
+            this.logger.error(
+              `Failed to update photo status to failed: ${err.message}`,
+            );
+          },
+        );
+        
         errors.push({
           photoId: photoData.photoId,
           error: error.message,

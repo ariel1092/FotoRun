@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import { PHOTO_PROCESSING_QUEUE } from './queue.module';
+import type { Queue } from 'bull';
+import { PHOTO_PROCESSING_QUEUE } from './queue.constants';
 
 export interface PhotoProcessingJobData {
   photoId: string;

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { join } from 'path';
 import { AppController } from './app.controller';
@@ -13,6 +13,7 @@ import { RacesModule } from './races/races.module';
 import { PhotosModule } from './photos/photos.module';
 import { RoboflowModule } from './roboflow/roboflow.module';
 import { QueueModule } from './queue/queue.module';
+import { PhotoProcessingModule } from './queue/photo-processing.module';
 import { getDatabaseConfig } from './config/database.config';
 import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor';
 
@@ -28,10 +29,16 @@ import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor'
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        ttl: configService.get<number>('THROTTLE_TTL', 60), // Time window in seconds
-        limit: configService.get<number>('THROTTLE_LIMIT', 100), // Max requests per window
-      }),
+      useFactory: (configService: ConfigService): ThrottlerModuleOptions => {
+        return {
+          throttlers: [
+            {
+              ttl: configService.get<number>('THROTTLE_TTL', 60) * 1000, // Time window in milliseconds
+              limit: configService.get<number>('THROTTLE_LIMIT', 100), // Max requests per window
+            },
+          ],
+        };
+      },
     }),
 
     // Database Connection
@@ -54,6 +61,7 @@ import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor'
     PhotosModule,
     RoboflowModule,
     QueueModule,
+    PhotoProcessingModule, // PhotoProcessor en su propio módulo
   ],
   controllers: [AppController],
   providers: [
