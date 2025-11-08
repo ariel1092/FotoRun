@@ -33,8 +33,8 @@ export interface DetectionOptions {
 export class BibDetectionService {
   private readonly logger = new Logger(BibDetectionService.name);
   private readonly defaultOptions: DetectionOptions = {
-    minDetectionConfidence: 0.5,
-    minOCRConfidence: 0.6,
+    minDetectionConfidence: 0.3,
+    minOCRConfidence: 0.3,
     useOCR: true,
     enhanceImage: true,
     ocrFallback: true,
@@ -127,13 +127,33 @@ export class BibDetectionService {
     detection: RoboflowDetection,
     options: DetectionOptions,
   ): Promise<EnhancedDetection | null> {
-    // Extract region
-    const region = await this.imageProcessingService.extractRegion(
-      imageBuffer,
+    // Get image dimensions
+    const { width: imageWidth, height: imageHeight } =
+      await this.imageProcessingService.getImageDimensions(imageBuffer);
+
+    // Expand bounding box by 45% to give OCR more context
+    const expanded = this.imageProcessingService.expandBoundingBox(
       detection.x,
       detection.y,
       detection.width,
       detection.height,
+      imageWidth,
+      imageHeight,
+      45, // 45% expansion (increased from 35% to capture full bib numbers)
+    );
+
+    this.logger.debug(
+      `Original bbox: (${detection.x.toFixed(0)}, ${detection.y.toFixed(0)}, ${detection.width.toFixed(0)}x${detection.height.toFixed(0)}) -> ` +
+      `Expanded bbox: (${expanded.x.toFixed(0)}, ${expanded.y.toFixed(0)}, ${expanded.width.toFixed(0)}x${expanded.height.toFixed(0)})`
+    );
+
+    // Extract region with expanded bounding box
+    const region = await this.imageProcessingService.extractRegion(
+      imageBuffer,
+      expanded.x,
+      expanded.y,
+      expanded.width,
+      expanded.height,
     );
 
     let bibNumber = detection.class;

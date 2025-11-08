@@ -8,6 +8,7 @@ import { ImageProcessingService } from '../image-processing/image-processing.ser
 import { ImageEnhancementService } from '../image-processing/image-enhancement.service';
 import { OcrService } from '../ocr/ocr.service';
 import { BibOCRService } from '../ocr/bib-ocr.service';
+import { GoogleVisionOCRService } from '../ocr/google-vision-ocr.service';
 import { BibDetectionService } from './bib-detection.service';
 import { StorageService } from '../storage/storage.service';
 import { RunnersModule } from '../runners/runners.module';
@@ -27,6 +28,7 @@ import { RoboflowModule } from '../roboflow/roboflow.module';
     ImageEnhancementService,
     OcrService,
     BibOCRService,
+    GoogleVisionOCRService,
     BibDetectionService,
     StorageService,
   ],

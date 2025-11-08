@@ -86,11 +86,7 @@ export class ImageEnhancementService {
 
       // Apply sharpening (improves text detection)
       if (sharpen) {
-        pipeline = pipeline.sharpen({
-          sigma: 1.0,
-          flat: 1.0,
-          jagged: 2.0,
-        });
+        pipeline = pipeline.sharpen(1.0, 1.0, 2.0);
       }
 
       const enhancedBuffer = await pipeline.toBuffer();
@@ -114,8 +110,8 @@ export class ImageEnhancementService {
     options: ImageEnhancementOptions = {},
   ): Promise<Buffer> {
     return this.enhanceImage(regionBuffer, {
-      contrast: 1.5,
-      brightness: 1.1,
+      contrast: 2.0,
+      brightness: 1.2,
       sharpen: true,
       normalize: true,
       grayscale: true,
@@ -139,6 +135,51 @@ export class ImageEnhancementService {
       resize: { maxDimension: 1920 }, // Resize large images for better performance
       ...options,
     });
+  }
+
+  /**
+   * Upscale small regions to improve OCR accuracy
+   * Small regions (< 100px) are scaled up to at least 200x200px
+   */
+  async upscaleRegionForOCR(regionBuffer: Buffer): Promise<Buffer> {
+    try {
+      const metadata = await sharp(regionBuffer).metadata();
+      const { width, height } = metadata;
+
+      if (!width || !height) {
+        this.logger.warn('Could not get region dimensions, skipping upscaling');
+        return regionBuffer;
+      }
+
+      // Only upscale if region is smaller than 200px in any dimension
+      const minDimension = Math.min(width, height);
+      if (minDimension >= 200) {
+        this.logger.debug(`Region already large enough (${width}x${height}), skipping upscaling`);
+        return regionBuffer;
+      }
+
+      // Calculate scale factor to make smallest dimension = 200px
+      const scaleFactor = 200 / minDimension;
+      const newWidth = Math.round(width * scaleFactor);
+      const newHeight = Math.round(height * scaleFactor);
+
+      this.logger.log(
+        `Upscaling region from ${width}x${height} to ${newWidth}x${newHeight} (${scaleFactor.toFixed(2)}x)`
+      );
+
+      // Use Lanczos3 for high-quality upscaling
+      const upscaledBuffer = await sharp(regionBuffer)
+        .resize(newWidth, newHeight, {
+          kernel: sharp.kernel.lanczos3,
+          fit: 'fill',
+        })
+        .toBuffer();
+
+      return upscaledBuffer;
+    } catch (error) {
+      this.logger.error(`Error upscaling region: ${error.message}`);
+      return regionBuffer; // Return original if upscaling fails
+    }
   }
 }
 

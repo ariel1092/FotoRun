@@ -22,7 +22,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { PhotosService } from './photo.service';
 import { Photo } from './photo.entity';
-import { validateImageFile, validateImageFiles } from '../common/utils/file-validation.util';
+import {
+  validateImageFile,
+  validateImageFiles,
+} from '../common/utils/file-validation.util';
 import { QueueService } from '../queue/queue.service';
 
 @Controller('photos')
