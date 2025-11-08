@@ -57,8 +57,6 @@ export function SearchForm() {
     fetchRaces()
   }, [toast])
 
-  const filteredRaces = races.filter((race) => !discipline || race.id === discipline)
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!bibNumber) {
@@ -102,7 +100,7 @@ export function SearchForm() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los eventos</SelectItem>
-              {filteredRaces.map((race) => (
+              {races.map((race) => (
                 <SelectItem key={race.id} value={race.id}>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />

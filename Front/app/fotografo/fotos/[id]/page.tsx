@@ -15,10 +15,13 @@ import {
   XCircle,
   Eye,
   RefreshCw,
+  Scan,
+  Image as ImageLucide,
 } from "lucide-react"
 import Link from "next/link"
 import { photosApi } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import { PhotoWithDetections } from "@/components/photo-with-detections"
 import {
   Table,
   TableBody,
@@ -36,6 +39,7 @@ export default function PhotoDetailPage() {
   const [status, setStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [polling, setPolling] = useState(false)
+  const [showAnnotations, setShowAnnotations] = useState(true)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -162,6 +166,25 @@ export default function PhotoDetailPage() {
         </div>
         <div className="flex gap-2">
           {getStatusBadge(photo.processingStatus || "pending")}
+          {photo.detections && photo.detections.length > 0 && (
+            <Button
+              variant={showAnnotations ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowAnnotations(!showAnnotations)}
+            >
+              {showAnnotations ? (
+                <>
+                  <Scan className="mr-2 h-4 w-4" />
+                  Con Detecciones
+                </>
+              ) : (
+                <>
+                  <ImageLucide className="mr-2 h-4 w-4" />
+                  Foto Original
+                </>
+              )}
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <a href={photo.url} download target="_blank" rel="noopener noreferrer">
               <Download className="mr-2 h-4 w-4" />
@@ -175,12 +198,20 @@ export default function PhotoDetailPage() {
         {/* Photo Preview */}
         <div className="lg:col-span-2">
           <Card className="overflow-hidden">
-            <div className="relative aspect-auto bg-muted">
-              <img
-                src={photo.url}
-                alt={photo.originalName}
-                className="w-full h-auto object-contain"
-              />
+            <div className="relative aspect-auto bg-muted p-4">
+              {photo.detections && photo.detections.length > 0 ? (
+                <PhotoWithDetections
+                  photoUrl={photo.url}
+                  detections={photo.detections}
+                  showAnnotations={showAnnotations}
+                />
+              ) : (
+                <img
+                  src={photo.url}
+                  alt={photo.originalName}
+                  className="w-full h-auto object-contain"
+                />
+              )}
             </div>
           </Card>
         </div>

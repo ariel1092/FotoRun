@@ -31,6 +31,7 @@ interface Photo {
 export function PhotoGallery() {
   const searchParams = useSearchParams()
   const bibNumber = searchParams.get("numero")
+  const raceId = searchParams.get("race")
 
   const [photos, setPhotos] = useState<Photo[]>([])
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set())
@@ -48,7 +49,7 @@ export function PhotoGallery() {
       setError(null)
 
       photosApi
-        .searchByBibNumber(bibNumber)
+        .searchByBibNumber(bibNumber, raceId && raceId !== "all" ? raceId : undefined)
         .then((data) => {
           setPhotos(Array.isArray(data) ? data : data.photos || [])
         })
@@ -62,7 +63,7 @@ export function PhotoGallery() {
       setPhotos([])
       setError(null)
     }
-  }, [bibNumber])
+  }, [bibNumber, raceId])
 
   const togglePhotoSelection = (photoId: string) => {
     const newSelection = new Set(selectedPhotos)
@@ -152,7 +153,7 @@ export function PhotoGallery() {
             <div className="relative aspect-[3/2] overflow-hidden bg-muted">
               <img
                 src={buildCloudinaryWatermarkedUrl(
-                  `${process.env.NEXT_PUBLIC_API_URL}${photo.url}`,
+                  photo.url,
                   'JERPRO FOTOGRAFIA'
                 )}
                 alt={`Foto ${photo.originalName}`}
@@ -165,7 +166,7 @@ export function PhotoGallery() {
                   className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => setLightboxPhoto(
                     buildCloudinaryWatermarkedUrl(
-                      `${process.env.NEXT_PUBLIC_API_URL}${photo.url}`,
+                      photo.url,
                       'JERPRO FOTOGRAFIA'
                     )
                   )}

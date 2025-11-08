@@ -1,0 +1,706 @@
+{
+	"info": {
+		"_postman_id": "fotorun-api-collection",
+		"name": "FotoRun API - Complete Collection",
+		"description": "Colección completa de endpoints para FotoRun - Plataforma de Fotografía Deportiva\n\n**Backend URL:** http://localhost:8000\n\n**Flujo de uso:**\n1. Registrarse como fotógrafo (POST /auth/register/photographer)\n2. Login (POST /auth/login) - Copia el access_token\n3. Configurar token en Authorization tab\n4. Crear un evento (POST /races)\n5. Subir foto (POST /photos/upload) - Usa el raceId del paso 4\n6. Ver estado de procesamiento (GET /photos/:id/status)\n7. Ver detecciones (GET /detections/photo/:photoId)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"leslie@fotorun.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Leslie Developer\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "register"]
+						},
+						"description": "Registrar un nuevo usuario regular"
+					},
+					"response": []
+				},
+				{
+					"name": "Register Photographer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"fotografo@fotorun.com\",\n  \"password\": \"Password123!\",\n  \"name\": \"Fotógrafo Pro\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register/photographer",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "register", "photographer"]
+						},
+						"description": "Registrar un nuevo fotógrafo (role: photographer)"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar token automáticamente",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('jwt_token', response.access_token);",
+									"    console.log('✅ Token guardado:', response.access_token.substring(0, 20) + '...');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"fotografo@fotorun.com\",\n  \"password\": \"Password123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login - El token se guarda automáticamente en la variable de entorno"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/profile",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "profile"]
+						},
+						"description": "Obtener perfil del usuario autenticado"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de autenticación y registro"
+		},
+		{
+			"name": "Races (Eventos)",
+			"item": [
+				{
+					"name": "Create Race",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar raceId para usar en otros requests",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('race_id', response.id);",
+									"    console.log('✅ Race ID guardado:', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Maratón Buenos Aires 2025\",\n  \"date\": \"2025-12-15T08:00:00Z\",\n  \"location\": \"Buenos Aires, Argentina\",\n  \"description\": \"42K por la ciudad\",\n  \"price\": 15000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/races",
+							"host": ["{{base_url}}"],
+							"path": ["races"]
+						},
+						"description": "Crear un nuevo evento/carrera. El ID se guarda automáticamente."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Races",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/races",
+							"host": ["{{base_url}}"],
+							"path": ["races"]
+						},
+						"description": "Obtener todos los eventos"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Races",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/races/active",
+							"host": ["{{base_url}}"],
+							"path": ["races", "active"]
+						},
+						"description": "Obtener solo eventos activos"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Race by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/races/{{race_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["races", "{{race_id}}"]
+						},
+						"description": "Obtener un evento específico"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Race",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Maratón Buenos Aires 2025 - ACTUALIZADO\",\n  \"price\": 18000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/races/{{race_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["races", "{{race_id}}"]
+						},
+						"description": "Actualizar un evento"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Race",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/races/{{race_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["races", "{{race_id}}"]
+						},
+						"description": "Desactivar un evento"
+					},
+					"response": []
+				}
+			],
+			"description": "Gestión de eventos/carreras"
+		},
+		{
+			"name": "Photos",
+			"item": [
+				{
+					"name": "Upload Photo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Guardar photoId para usar en otros requests",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('photo_id', response.id);",
+									"    console.log('✅ Photo ID guardado:', response.id);",
+									"    console.log('📸 URL:', response.url);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "photo",
+									"type": "file",
+									"src": [],
+									"description": "Seleccionar una imagen JPG/PNG con un corredor y número de dorsal visible"
+								},
+								{
+									"key": "raceId",
+									"value": "{{race_id}}",
+									"type": "text",
+									"description": "ID del evento (se auto-completa si creaste un evento)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/photos/upload",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "upload"]
+						},
+						"description": "Subir una foto. La foto se procesa automáticamente en background.\n\n**Requisitos:**\n- Formato: JPG, JPEG o PNG\n- Tamaño máximo: 10MB\n- Debe tener un raceId válido\n\n**Procesamiento:**\n1. Se sube a Supabase Storage\n2. Se genera thumbnail\n3. Se agrega a cola para detección de dorsales\n4. Estado inicial: 'pending'"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Multiple Photos",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "photos",
+									"type": "file",
+									"src": [],
+									"description": "Seleccionar múltiples imágenes (máx 50)"
+								},
+								{
+									"key": "photos",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "photos",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "raceId",
+									"value": "{{race_id}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/photos/upload-multiple",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "upload-multiple"]
+						},
+						"description": "Subir múltiples fotos (hasta 50). Todas se procesan en paralelo."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Photo Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos/{{photo_id}}/status",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "{{photo_id}}", "status"]
+						},
+						"description": "Ver estado de procesamiento de una foto.\n\n**Estados posibles:**\n- `pending`: En cola, esperando procesamiento\n- `processing`: Procesando dorsales ahora\n- `completed`: Procesamiento completado\n- `failed`: Error en procesamiento"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Photos",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos",
+							"host": ["{{base_url}}"],
+							"path": ["photos"]
+						},
+						"description": "Obtener todas las fotos del fotógrafo autenticado"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Photo by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos/{{photo_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "{{photo_id}}"]
+						},
+						"description": "Obtener una foto específica con sus detecciones"
+					},
+					"response": []
+				},
+				{
+					"name": "Search by Bib Number",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos/search?bibNumber=123",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "search"],
+							"query": [
+								{
+									"key": "bibNumber",
+									"value": "123",
+									"description": "Número de dorsal a buscar"
+								}
+							]
+						},
+						"description": "Buscar fotos por número de dorsal"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Photos by Race",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos/race/{{race_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "race", "{{race_id}}"]
+						},
+						"description": "Obtener todas las fotos de un evento específico"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Photographer Stats",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos/stats",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "stats"]
+						},
+						"description": "Obtener estadísticas del fotógrafo: total de fotos, procesadas, pendientes, etc."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Photo",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/photos/{{photo_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["photos", "{{photo_id}}"]
+						},
+						"description": "Eliminar una foto (también se elimina de Supabase Storage)"
+					},
+					"response": []
+				}
+			],
+			"description": "Gestión de fotos y uploads"
+		},
+		{
+			"name": "Detections",
+			"item": [
+				{
+					"name": "Get All Detections",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/detections",
+							"host": ["{{base_url}}"],
+							"path": ["detections"]
+						},
+						"description": "Obtener todas las detecciones de dorsales"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Detections by Photo",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/detections/photo/{{photo_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["detections", "photo", "{{photo_id}}"]
+						},
+						"description": "Obtener todas las detecciones de una foto específica.\n\nCada detección incluye:\n- `bibNumber`: Número detectado\n- `confidence`: Confianza de la detección (0-1)\n- `boundingBox`: Coordenadas del área detectada\n- `ocrText`: Texto leído por OCR (si aplica)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Detections by Bib Number",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/detections/bib/123",
+							"host": ["{{base_url}}"],
+							"path": ["detections", "bib", "123"]
+						},
+						"description": "Buscar todas las detecciones de un número de dorsal específico"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Detection Stats",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/detections/stats",
+							"host": ["{{base_url}}"],
+							"path": ["detections", "stats"]
+						},
+						"description": "Obtener estadísticas de detecciones: total, promedio de confianza, etc."
+					},
+					"response": []
+				}
+			],
+			"description": "Detecciones de dorsales (generadas automáticamente)"
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Server Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						},
+						"description": "Verificar que el servidor está funcionando"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Config",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/config",
+							"host": ["{{base_url}}"],
+							"path": ["config"]
+						},
+						"description": "Obtener configuración pública del servidor"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de health check"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "race_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "photo_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
