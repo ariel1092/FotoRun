@@ -11,6 +11,8 @@ import { StorageService } from '../storage/storage.service';
 import { ImageProcessingService } from '../image-processing/image-processing.service';
 import { ImageEnhancementService } from '../image-processing/image-enhancement.service';
 import { QueueModule } from '../queue/queue.module';
+import { WatermarkService } from '../common/services/watermark.service';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -21,11 +23,13 @@ import { QueueModule } from '../queue/queue.module';
     RoboflowModule,
     DetectionModule, // Import DetectionModule to use BibDetectionService
     QueueModule, // Import QueueModule to use QueueService
+    CloudinaryModule, // Import CloudinaryModule to use CloudinaryService
   ],
   controllers: [PhotosController],
   providers: [
     PhotosService,
     StorageService,
+    WatermarkService,
     ImageProcessingService,
     ImageEnhancementService,
   ],

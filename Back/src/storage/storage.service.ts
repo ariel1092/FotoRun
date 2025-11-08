@@ -162,6 +162,7 @@ export class StorageService {
     }
   }
 
+
   /**
    * Delete a file from Supabase Storage
    */

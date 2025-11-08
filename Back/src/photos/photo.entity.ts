@@ -17,11 +17,14 @@ export class Photo {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ type: 'varchar', length: 500 })
+    @Column({ type: 'varchar', length: 500, nullable: true })
     url: string;
 
     @Column({ type: 'varchar', length: 500, nullable: true })
     thumbnailUrl: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    cloudinaryPublicId: string;
 
     @Column({ type: 'varchar', length: 255, nullable: true })
     filename: string;

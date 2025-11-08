@@ -100,17 +100,38 @@ export class GoogleVisionOCRService {
       return null;
     }
 
-    // Extract only digits from the detected text
-    const digits = result.text.replace(/\D/g, '');
+    // Find all sequences of consecutive digits in the text
+    const digitSequences = result.text.match(/\d+/g);
 
-    // Bib numbers are typically 1-5 digits
-    const bibNumberMatch = digits.match(/\d{1,5}/);
-
-    if (!bibNumberMatch) {
+    if (!digitSequences || digitSequences.length === 0) {
       this.logger.warn(`No valid bib number in text: "${result.text}"`);
       return null;
     }
 
-    return bibNumberMatch[0];
+    // Filter to valid bib number lengths (1-4 digits)
+    const validBibNumbers = digitSequences.filter(seq => {
+      const num = parseInt(seq, 10);
+      return seq.length >= 1 && seq.length <= 4 && num > 0;
+    });
+
+    if (validBibNumbers.length === 0) {
+      this.logger.warn(`No valid bib number (1-4 digits) in text: "${result.text}"`);
+      return null;
+    }
+
+    // If multiple valid sequences found, prefer the longest one
+    // (bib numbers are usually the most prominent digits)
+    const bestMatch = validBibNumbers.reduce((best, current) => {
+      if (current.length > best.length) return current;
+      if (current.length === best.length) {
+        // If same length, prefer the one that appears first (usually the bib)
+        return result.text.indexOf(current) < result.text.indexOf(best) ? current : best;
+      }
+      return best;
+    });
+
+    this.logger.log(`Selected bib number "${bestMatch}" from candidates: ${validBibNumbers.join(', ')}`);
+
+    return bestMatch;
   }
 }

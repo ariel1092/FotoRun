@@ -6,6 +6,7 @@ import { Detection } from '../detection/entities/detection.entity';
 import { RoboflowService } from '../roboflow/roboflow.service';
 import { StorageService } from '../storage/storage.service';
 import { BibDetectionService } from '../detection/bib-detection.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import axios from 'axios';
 
 @Injectable()
@@ -20,11 +21,13 @@ export class PhotosService {
     private readonly roboflowService: RoboflowService,
     private readonly storageService: StorageService,
     private readonly bibDetectionService: BibDetectionService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(data: {
     url: string;
     thumbnailUrl?: string;
+    cloudinaryPublicId?: string;
     filename: string;
     originalName: string;
     mimeType: string;
@@ -37,7 +40,7 @@ export class PhotosService {
   }
 
   /**
-   * Upload a photo to Supabase Storage and create database record
+   * Upload a photo to Cloudinary and create database record
    */
   async uploadPhoto(
     buffer: Buffer,
@@ -48,25 +51,38 @@ export class PhotosService {
     uploadedBy: string,
   ): Promise<Photo> {
     try {
-      this.logger.log(`Uploading photo: ${originalName}`);
+      this.logger.log(`Uploading photo to Cloudinary: ${originalName}`);
 
       // Generate unique filename
       const ext = originalName.split('.').pop() || 'jpg';
       const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
 
-      // Upload photo and generate thumbnail
-      const { photo: uploadResult, thumbnail: thumbnailResult } =
-        await this.storageService.uploadPhotoWithThumbnail(
-          buffer,
-          filename,
-          mimeType,
-        );
+      // Upload to Cloudinary
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        buffer,
+        filename,
+        'jerpro/photos',
+      );
+
+      this.logger.log(
+        `Photo uploaded to Cloudinary. Public ID: ${uploadResult.publicId}`,
+      );
+
+      // Generate URLs (we'll use Cloudinary transformations on-the-fly)
+      const watermarkedUrl = this.cloudinaryService.getWatermarkedUrl(
+        uploadResult.publicId,
+        'JERPRO',
+      );
+      const thumbnailUrl = this.cloudinaryService.getThumbnailUrl(
+        uploadResult.publicId,
+      );
 
       // Create database record
       const photo = await this.create({
-        url: uploadResult.publicUrl,
-        thumbnailUrl: thumbnailResult.publicUrl,
-        filename: uploadResult.path,
+        url: watermarkedUrl, // Store watermarked URL as default
+        thumbnailUrl: thumbnailUrl,
+        cloudinaryPublicId: uploadResult.publicId,
+        filename: uploadResult.publicId, // Use publicId as filename for compatibility
         originalName,
         mimeType,
         size,
@@ -98,8 +114,19 @@ export class PhotosService {
         throw new NotFoundException(`Photo with ID ${photoId} not found`);
       }
 
-      // Download image from Supabase Storage URL
-      const imageResponse = await axios.get(photoUrl, {
+      // Determine the URL to download from
+      let downloadUrl = photoUrl;
+
+      // If photo has cloudinaryPublicId, use Cloudinary's original URL (without transformations)
+      if (photo.cloudinaryPublicId) {
+        downloadUrl = this.cloudinaryService.getOriginalUrl(photo.cloudinaryPublicId);
+        this.logger.log(`Using Cloudinary original URL for processing: ${downloadUrl}`);
+      } else {
+        this.logger.log(`Using Supabase URL for processing: ${downloadUrl}`);
+      }
+
+      // Download image
+      const imageResponse = await axios.get(downloadUrl, {
         responseType: 'arraybuffer',
       });
       const imageBuffer = Buffer.from(imageResponse.data, 'binary');
@@ -239,12 +266,19 @@ export class PhotosService {
     };
   }
 
-  async findByBibNumber(bibNumber: string): Promise<Photo[]> {
-    return await this.photoRepository
+  async findByBibNumber(bibNumber: string, raceId?: string): Promise<Photo[]> {
+    const queryBuilder = this.photoRepository
       .createQueryBuilder('photo')
       .innerJoin('photo.detections', 'detection')
       .where('detection.bibNumber = :bibNumber', { bibNumber })
-      .andWhere('photo.isProcessed = :isProcessed', { isProcessed: true })
+      .andWhere('photo.isProcessed = :isProcessed', { isProcessed: true });
+
+    // Filter by raceId if provided
+    if (raceId) {
+      queryBuilder.andWhere('photo.raceId = :raceId', { raceId });
+    }
+
+    return await queryBuilder
       .leftJoinAndSelect('photo.race', 'race')
       .leftJoinAndSelect('photo.detections', 'allDetections')
       .orderBy('photo.createdAt', 'DESC')
@@ -318,18 +352,34 @@ export class PhotosService {
       throw new NotFoundException(`Photo with ID ${id} not found`);
     }
 
-    // Delete from Supabase Storage
+    // Delete associated detections first (to avoid foreign key constraint violation)
     try {
-      if (photo.filename) {
-        await this.storageService.delete(photo.filename);
-        this.logger.log(`Photo deleted from storage: ${photo.filename}`);
+      const deleteDetectionsResult = await this.detectionRepository.delete({ photoId: id });
+      if (deleteDetectionsResult.affected && deleteDetectionsResult.affected > 0) {
+        this.logger.log(`Deleted ${deleteDetectionsResult.affected} detections for photo ${id}`);
       }
+    } catch (error) {
+      this.logger.warn(
+        `Error deleting detections for photo ${id}: ${error.message}`,
+      );
+    }
 
-      // Delete thumbnail if exists
-      if (photo.thumbnailUrl) {
-        const thumbnailPath = photo.thumbnailUrl.split('/').pop();
-        if (thumbnailPath) {
-          await this.storageService.delete(`thumbnails/${thumbnailPath}`);
+    // Delete from Cloudinary
+    try {
+      if (photo.cloudinaryPublicId) {
+        await this.cloudinaryService.deleteImage(photo.cloudinaryPublicId);
+        this.logger.log(`Photo deleted from Cloudinary: ${photo.cloudinaryPublicId}`);
+      } else if (photo.filename) {
+        // Fallback: try to delete from Supabase if no Cloudinary ID (for old photos)
+        await this.storageService.delete(photo.filename);
+        this.logger.log(`Photo deleted from Supabase storage: ${photo.filename}`);
+
+        // Delete thumbnail if exists
+        if (photo.thumbnailUrl) {
+          const thumbnailPath = photo.thumbnailUrl.split('/').pop();
+          if (thumbnailPath) {
+            await this.storageService.delete(`thumbnails/${thumbnailPath}`);
+          }
         }
       }
     } catch (error) {

@@ -131,7 +131,7 @@ export class BibDetectionService {
     const { width: imageWidth, height: imageHeight } =
       await this.imageProcessingService.getImageDimensions(imageBuffer);
 
-    // Expand bounding box by 45% to give OCR more context
+    // Expand bounding box by 70% to give OCR more context and capture full bib numbers
     const expanded = this.imageProcessingService.expandBoundingBox(
       detection.x,
       detection.y,
@@ -139,7 +139,7 @@ export class BibDetectionService {
       detection.height,
       imageWidth,
       imageHeight,
-      45, // 45% expansion (increased from 35% to capture full bib numbers)
+      70, // 70% expansion (increased from 45% to better capture 4-digit numbers)
     );
 
     this.logger.debug(

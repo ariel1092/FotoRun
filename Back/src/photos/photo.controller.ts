@@ -171,12 +171,13 @@ export class PhotosController {
   @Get('search')
   async searchByBibNumber(
     @Query('bibNumber') bibNumber: string,
+    @Query('raceId') raceId?: string,
   ): Promise<Photo[]> {
     if (!bibNumber) {
       throw new BadRequestException('bibNumber query parameter is required');
     }
 
-    return await this.photosService.findByBibNumber(bibNumber);
+    return await this.photosService.findByBibNumber(bibNumber, raceId);
   }
 
   @Get('race/:raceId')
