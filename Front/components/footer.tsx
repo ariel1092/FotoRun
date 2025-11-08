@@ -31,6 +31,14 @@ export function Footer() {
                   Cómo funciona
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/faq"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Preguntas frecuentes
+                </Link>
+              </li>
             </ul>
           </div>
 

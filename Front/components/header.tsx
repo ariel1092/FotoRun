@@ -58,6 +58,12 @@ export function Header() {
           >
             Buscar fotos
           </Link>
+          <Link
+            href="/faq"
+            className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+          >
+            FAQ
+          </Link>
           {user && getDashboardLink() && (
             <Link
               href={getDashboardLink()!}
