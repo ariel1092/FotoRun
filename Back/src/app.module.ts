@@ -14,6 +14,7 @@ import { PhotosModule } from './photos/photos.module';
 import { RoboflowModule } from './roboflow/roboflow.module';
 import { QueueModule } from './queue/queue.module';
 import { PhotoProcessingModule } from './queue/photo-processing.module';
+import { EmailModule } from './email/email.module';
 import { getDatabaseConfig } from './config/database.config';
 import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor';
 
@@ -62,6 +63,7 @@ import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor'
     RoboflowModule,
     QueueModule,
     PhotoProcessingModule, // PhotoProcessor en su propio módulo
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

@@ -25,19 +25,23 @@ async function bootstrap() {
 
   // CORS - Configuración para desarrollo y producción
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  
-  const allowedOrigins = process.env.CORS_ORIGIN 
-    ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
     : isDevelopment
-    ? [
-        'http://localhost:3000',  // Next.js default
-        'http://localhost:5173',  // Vite default
-        'http://localhost:3001',  // Alternative port
-      ]
-    : []; // En producción, no permitir ningún origen por defecto
+      ? [
+          'http://localhost:3000', // Next.js default
+          'http://localhost:5173', // Vite default
+          'http://localhost:3001',
+          'http://localhost:3002', // Alternative port
+        ]
+      : []; // En producción, no permitir ningún origen por defecto
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       // En producción, no permitir requests sin origen
       if (!origin) {
         if (isDevelopment) {
@@ -45,14 +49,14 @@ async function bootstrap() {
         }
         return callback(new Error('CORS: Origin is required in production'));
       }
-      
+
       // En desarrollo, permitir localhost
       if (isDevelopment) {
         if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
           return callback(null, true);
         }
       }
-      
+
       // Verificar si el origen está en la lista permitida
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
