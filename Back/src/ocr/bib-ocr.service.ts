@@ -62,7 +62,8 @@ export class BibOCRService {
       const worker = await this.initializeWorker();
 
       // First, upscale region if it's too small (improves OCR accuracy)
-      const upscaledRegion = await this.imageEnhancementService.upscaleRegionForOCR(regionBuffer);
+      const upscaledRegion =
+        await this.imageEnhancementService.upscaleRegionForOCR(regionBuffer);
 
       // Try multiple preprocessing strategies
       const preprocessingStrategies = [
@@ -156,7 +157,9 @@ export class BibOCRService {
             method: 'google_vision',
           };
         } else {
-          this.logger.log('Google Vision failed, falling back to Tesseract result');
+          this.logger.log(
+            'Google Vision failed, falling back to Tesseract result',
+          );
         }
       }
 
