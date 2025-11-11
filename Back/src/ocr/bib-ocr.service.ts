@@ -1,18 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { createWorker, Worker } from 'tesseract.js';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { createWorker, Worker, PSM } from 'tesseract.js';
 import { ImageEnhancementService } from '../image-processing/image-enhancement.service';
+import { GoogleVisionOCRService } from './google-vision-ocr.service';
 
 export interface BibOCRResult {
   bibNumber: string;
   confidence: number;
   rawText: string;
   alternatives?: string[];
+  method?: 'tesseract' | 'google_vision';
 }
 
 export interface OCRConfig {
   lang?: string;
   whitelist?: string; // Characters to recognize (e.g., '0123456789')
-  psm?: number; // Page segmentation mode
+  psm?: PSM; // Page segmentation mode
   oem?: number; // OCR Engine mode
 }
 
@@ -23,12 +25,13 @@ export class BibOCRService {
   private readonly defaultConfig: OCRConfig = {
     lang: 'eng',
     whitelist: '0123456789',
-    psm: 7, // Treat the image as a single text line
+    psm: PSM.SINGLE_WORD, // Treat the image as a single word (better for bib numbers)
     oem: 3, // Default OCR Engine Mode
   };
 
   constructor(
     private readonly imageEnhancementService: ImageEnhancementService,
+    @Optional() private readonly googleVisionService?: GoogleVisionOCRService,
   ) {}
 
   /**
@@ -38,10 +41,10 @@ export class BibOCRService {
     if (!this.worker) {
       this.logger.log('Initializing Tesseract OCR worker...');
       this.worker = await createWorker(this.defaultConfig.lang || 'eng');
-      
+
       await this.worker.setParameters({
         tessedit_char_whitelist: this.defaultConfig.whitelist || '0123456789',
-        tessedit_pageseg_mode: this.defaultConfig.psm?.toString() || '7',
+        tessedit_pageseg_mode: this.defaultConfig.psm || PSM.SINGLE_LINE,
         tessedit_ocr_engine_mode: this.defaultConfig.oem?.toString() || '3',
       });
 
@@ -52,49 +55,142 @@ export class BibOCRService {
   }
 
   /**
-   * Read bib number from image region
+   * Read bib number from image region with multiple preprocessing attempts
    */
-  async readBibNumber(
-    regionBuffer: Buffer,
-    config?: OCRConfig,
-  ): Promise<BibOCRResult | null> {
+  async readBibNumber(regionBuffer: Buffer): Promise<BibOCRResult | null> {
     try {
       const worker = await this.initializeWorker();
 
-      // Enhance region for better OCR
-      const enhancedRegion = await this.imageEnhancementService.enhanceRegionForOCR(
-        regionBuffer,
-      );
+      // First, upscale region if it's too small (improves OCR accuracy)
+      const upscaledRegion =
+        await this.imageEnhancementService.upscaleRegionForOCR(regionBuffer);
 
-      // Perform OCR
-      const {
-        data: { text, confidence },
-      } = await worker.recognize(enhancedRegion);
+      // Try multiple preprocessing strategies
+      const preprocessingStrategies = [
+        // Strategy 1: High contrast
+        {
+          contrast: 2.5,
+          brightness: 1.2,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        },
+        // Strategy 2: Very high contrast
+        {
+          contrast: 3.0,
+          brightness: 1.0,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        },
+        // Strategy 3: High brightness
+        {
+          contrast: 2.0,
+          brightness: 1.5,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        },
+        // Strategy 4: Extreme sharpening
+        {
+          contrast: 2.0,
+          brightness: 1.2,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        },
+      ];
 
-      // Clean and validate text
-      const cleanedText = this.cleanText(text);
-      const bibNumber = this.extractBibNumber(cleanedText);
+      let bestResult: {
+        bibNumber: string;
+        confidence: number;
+        rawText: string;
+      } | null = null;
 
-      if (!bibNumber) {
-        this.logger.warn(`No valid bib number found in text: "${text}"`);
+      for (let i = 0; i < preprocessingStrategies.length; i++) {
+        const strategy = preprocessingStrategies[i];
+
+        // Enhance upscaled region with current strategy
+        const enhancedRegion = await this.imageEnhancementService.enhanceImage(
+          upscaledRegion,
+          strategy,
+        );
+
+        // Perform OCR
+        const {
+          data: { text, confidence },
+        } = await worker.recognize(enhancedRegion);
+
+        // Clean and validate text
+        const cleanedText = this.cleanText(text);
+        const bibNumber = this.extractBibNumber(cleanedText);
+
+        if (bibNumber && (!bestResult || confidence > bestResult.confidence)) {
+          bestResult = { bibNumber, confidence, rawText: text };
+
+          // If we got a high confidence result, no need to try more strategies
+          if (confidence > 70) {
+            this.logger.log(
+              `OCR success on attempt ${i + 1}: "${bibNumber}" (confidence: ${confidence.toFixed(2)})`,
+            );
+            break;
+          }
+        }
+      }
+
+      // Always try Google Vision (it's more accurate than Tesseract for small text)
+      if (this.googleVisionService?.isEnabled()) {
+        this.logger.log('Trying Google Vision OCR...');
+
+        const visionBibNumber =
+          await this.googleVisionService.extractBibNumber(upscaledRegion);
+
+        if (visionBibNumber) {
+          this.logger.log(
+            `Google Vision detected bib number: "${visionBibNumber}"`,
+          );
+
+          return {
+            bibNumber: visionBibNumber,
+            confidence: 0.85, // Google Vision is generally high confidence
+            rawText: visionBibNumber,
+            method: 'google_vision',
+          };
+        } else {
+          this.logger.log(
+            'Google Vision failed, falling back to Tesseract result',
+          );
+        }
+      }
+
+      if (!bestResult) {
+        this.logger.warn(
+          `No valid bib number found after ${preprocessingStrategies.length} attempts`,
+        );
         return null;
       }
 
       // Get alternatives if confidence is low
-      const alternatives = confidence < 0.8 ? this.generateAlternatives(bibNumber) : undefined;
+      const alternatives =
+        bestResult.confidence < 80
+          ? this.generateAlternatives(bestResult.bibNumber)
+          : undefined;
 
       this.logger.log(
-        `OCR result: "${bibNumber}" (confidence: ${confidence.toFixed(2)}, raw: "${text}")`,
+        `OCR result: "${bestResult.bibNumber}" (confidence: ${bestResult.confidence.toFixed(2)}, raw: "${bestResult.rawText}")`,
       );
 
       return {
-        bibNumber,
-        confidence: confidence / 100, // Convert to 0-1 scale
-        rawText: text,
+        bibNumber: bestResult.bibNumber,
+        confidence: bestResult.confidence / 100, // Convert to 0-1 scale
+        rawText: bestResult.rawText,
         alternatives,
+        method: 'tesseract',
       };
     } catch (error) {
-      this.logger.error(`Error reading bib number with OCR: ${error.message}`);
+      this.logger.error(
+        `Error reading bib number with OCR: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }
@@ -150,4 +246,3 @@ export class BibOCRService {
     }
   }
 }
-

@@ -1,11 +1,12 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Photo } from './photo.entity';
 import { Detection } from '../detection/entities/detection.entity';
 import { RoboflowService } from '../roboflow/roboflow.service';
 import { StorageService } from '../storage/storage.service';
 import { BibDetectionService } from '../detection/bib-detection.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import axios from 'axios';
 
 @Injectable()
@@ -20,11 +21,13 @@ export class PhotosService {
     private readonly roboflowService: RoboflowService,
     private readonly storageService: StorageService,
     private readonly bibDetectionService: BibDetectionService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(data: {
     url: string;
     thumbnailUrl?: string;
+    cloudinaryPublicId?: string;
     filename: string;
     originalName: string;
     mimeType: string;
@@ -37,7 +40,7 @@ export class PhotosService {
   }
 
   /**
-   * Upload a photo to Supabase Storage and create database record
+   * Upload a photo to Cloudinary and create database record
    */
   async uploadPhoto(
     buffer: Buffer,
@@ -48,25 +51,38 @@ export class PhotosService {
     uploadedBy: string,
   ): Promise<Photo> {
     try {
-      this.logger.log(`Uploading photo: ${originalName}`);
+      this.logger.log(`Uploading photo to Cloudinary: ${originalName}`);
 
       // Generate unique filename
       const ext = originalName.split('.').pop() || 'jpg';
       const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
 
-      // Upload photo and generate thumbnail
-      const { photo: uploadResult, thumbnail: thumbnailResult } =
-        await this.storageService.uploadPhotoWithThumbnail(
-          buffer,
-          filename,
-          mimeType,
-        );
+      // Upload to Cloudinary
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        buffer,
+        filename,
+        'jerpro/photos',
+      );
+
+      this.logger.log(
+        `Photo uploaded to Cloudinary. Public ID: ${uploadResult.publicId}`,
+      );
+
+      // Generate URLs (we'll use Cloudinary transformations on-the-fly)
+      const watermarkedUrl = this.cloudinaryService.getWatermarkedUrl(
+        uploadResult.publicId,
+        'JERPRO',
+      );
+      const thumbnailUrl = this.cloudinaryService.getThumbnailUrl(
+        uploadResult.publicId,
+      );
 
       // Create database record
       const photo = await this.create({
-        url: uploadResult.publicUrl,
-        thumbnailUrl: thumbnailResult.publicUrl,
-        filename: uploadResult.path,
+        url: watermarkedUrl, // Store watermarked URL as default
+        thumbnailUrl: thumbnailUrl,
+        cloudinaryPublicId: uploadResult.publicId,
+        filename: uploadResult.publicId, // Use publicId as filename for compatibility
         originalName,
         mimeType,
         size,
@@ -98,8 +114,19 @@ export class PhotosService {
         throw new NotFoundException(`Photo with ID ${photoId} not found`);
       }
 
-      // Download image from Supabase Storage URL
-      const imageResponse = await axios.get(photoUrl, {
+      // Determine the URL to download from
+      let downloadUrl = photoUrl;
+
+      // If photo has cloudinaryPublicId, use Cloudinary's original URL (without transformations)
+      if (photo.cloudinaryPublicId) {
+        downloadUrl = this.cloudinaryService.getOriginalUrl(photo.cloudinaryPublicId);
+        this.logger.log(`Using Cloudinary original URL for processing: ${downloadUrl}`);
+      } else {
+        this.logger.log(`Using Supabase URL for processing: ${downloadUrl}`);
+      }
+
+      // Download image
+      const imageResponse = await axios.get(downloadUrl, {
         responseType: 'arraybuffer',
       });
       const imageBuffer = Buffer.from(imageResponse.data, 'binary');
@@ -141,9 +168,9 @@ export class PhotosService {
           ocrMetadata: enhanced.ocrResult
             ? {
                 rawText: enhanced.ocrResult.rawText,
-                alternatives: enhanced.ocrResult.alternatives,
+                alternatives: enhanced.ocrResult.alternatives || [],
               }
-            : null,
+            : undefined,
         });
 
         await this.detectionRepository.save(detection);
@@ -239,12 +266,19 @@ export class PhotosService {
     };
   }
 
-  async findByBibNumber(bibNumber: string): Promise<Photo[]> {
-    return await this.photoRepository
+  async findByBibNumber(bibNumber: string, raceId?: string): Promise<Photo[]> {
+    const queryBuilder = this.photoRepository
       .createQueryBuilder('photo')
       .innerJoin('photo.detections', 'detection')
       .where('detection.bibNumber = :bibNumber', { bibNumber })
-      .andWhere('photo.isProcessed = :isProcessed', { isProcessed: true })
+      .andWhere('photo.isProcessed = :isProcessed', { isProcessed: true });
+
+    // Filter by raceId if provided
+    if (raceId) {
+      queryBuilder.andWhere('photo.raceId = :raceId', { raceId });
+    }
+
+    return await queryBuilder
       .leftJoinAndSelect('photo.race', 'race')
       .leftJoinAndSelect('photo.detections', 'allDetections')
       .orderBy('photo.createdAt', 'DESC')
@@ -280,11 +314,33 @@ export class PhotosService {
   }
 
   async findAllByPhotographer(photographerId: string): Promise<Photo[]> {
-    return await this.photoRepository.find({
-      where: { uploadedBy: photographerId },
-      relations: ['detections', 'race'],
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      this.logger.log(`Finding all photos for photographer: ${photographerId}`);
+      // Cargar fotos sin la relación detections para evitar problemas con columnas faltantes
+      const photos = await this.photoRepository.find({
+        where: { uploadedBy: photographerId },
+        order: { createdAt: 'DESC' },
+      });
+      
+      // Si necesitamos las detecciones, las cargamos por separado
+      if (photos.length > 0) {
+        const photoIds = photos.map(p => p.id);
+        const detections = await this.detectionRepository.find({
+          where: { photoId: In(photoIds) },
+        });
+        
+        // Asignar detecciones a las fotos
+        photos.forEach(photo => {
+          photo.detections = detections.filter(d => d.photoId === photo.id);
+        });
+      }
+      
+      this.logger.log(`Found ${photos.length} photos for photographer: ${photographerId}`);
+      return photos;
+    } catch (error) {
+      this.logger.error(`Error finding photos for photographer ${photographerId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async remove(id: string): Promise<void> {
@@ -296,18 +352,34 @@ export class PhotosService {
       throw new NotFoundException(`Photo with ID ${id} not found`);
     }
 
-    // Delete from Supabase Storage
+    // Delete associated detections first (to avoid foreign key constraint violation)
     try {
-      if (photo.filename) {
-        await this.storageService.delete(photo.filename);
-        this.logger.log(`Photo deleted from storage: ${photo.filename}`);
+      const deleteDetectionsResult = await this.detectionRepository.delete({ photoId: id });
+      if (deleteDetectionsResult.affected && deleteDetectionsResult.affected > 0) {
+        this.logger.log(`Deleted ${deleteDetectionsResult.affected} detections for photo ${id}`);
       }
+    } catch (error) {
+      this.logger.warn(
+        `Error deleting detections for photo ${id}: ${error.message}`,
+      );
+    }
 
-      // Delete thumbnail if exists
-      if (photo.thumbnailUrl) {
-        const thumbnailPath = photo.thumbnailUrl.split('/').pop();
-        if (thumbnailPath) {
-          await this.storageService.delete(`thumbnails/${thumbnailPath}`);
+    // Delete from Cloudinary
+    try {
+      if (photo.cloudinaryPublicId) {
+        await this.cloudinaryService.deleteImage(photo.cloudinaryPublicId);
+        this.logger.log(`Photo deleted from Cloudinary: ${photo.cloudinaryPublicId}`);
+      } else if (photo.filename) {
+        // Fallback: try to delete from Supabase if no Cloudinary ID (for old photos)
+        await this.storageService.delete(photo.filename);
+        this.logger.log(`Photo deleted from Supabase storage: ${photo.filename}`);
+
+        // Delete thumbnail if exists
+        if (photo.thumbnailUrl) {
+          const thumbnailPath = photo.thumbnailUrl.split('/').pop();
+          if (thumbnailPath) {
+            await this.storageService.delete(`thumbnails/${thumbnailPath}`);
+          }
         }
       }
     } catch (error) {
@@ -332,43 +404,53 @@ export class PhotosService {
     totalDetections: number;
     photosByRace: Array<{ raceId: string; raceName: string; count: number }>;
   }> {
-    const totalPhotos = await this.photoRepository.count({
-      where: { uploadedBy: photographerId },
-    });
+    try {
+      this.logger.log(`Getting stats for photographer: ${photographerId}`);
+      
+      const totalPhotos = await this.photoRepository.count({
+        where: { uploadedBy: photographerId },
+      });
 
-    const processedPhotos = await this.photoRepository.count({
-      where: { uploadedBy: photographerId, isProcessed: true },
-    });
+      const processedPhotos = await this.photoRepository.count({
+        where: { uploadedBy: photographerId, isProcessed: true },
+      });
 
-    const pendingPhotos = totalPhotos - processedPhotos;
+      const pendingPhotos = totalPhotos - processedPhotos;
 
-    const totalDetections = await this.detectionRepository
-      .createQueryBuilder('detection')
-      .innerJoin('detection.photo', 'photo')
-      .where('photo.uploadedBy = :photographerId', { photographerId })
-      .getCount();
+      const totalDetections = await this.detectionRepository
+        .createQueryBuilder('detection')
+        .innerJoin('detection.photo', 'photo')
+        .where('photo.uploadedBy = :photographerId', { photographerId })
+        .getCount();
 
-    const photosByRace = await this.photoRepository
-      .createQueryBuilder('photo')
-      .select('photo.raceId', 'raceId')
-      .addSelect('race.name', 'raceName')
-      .addSelect('COUNT(photo.id)', 'count')
-      .innerJoin('photo.race', 'race')
-      .where('photo.uploadedBy = :photographerId', { photographerId })
-      .groupBy('photo.raceId')
-      .addGroupBy('race.name')
-      .getRawMany();
+      const photosByRace = await this.photoRepository
+        .createQueryBuilder('photo')
+        .select('photo.raceId', 'raceId')
+        .addSelect('COALESCE(race.name, \'Sin nombre\')', 'raceName')
+        .addSelect('COUNT(photo.id)', 'count')
+        .leftJoin('photo.race', 'race')
+        .where('photo.uploadedBy = :photographerId', { photographerId })
+        .groupBy('photo.raceId')
+        .addGroupBy('race.name')
+        .getRawMany();
 
-    return {
-      totalPhotos,
-      processedPhotos,
-      pendingPhotos,
-      totalDetections,
-      photosByRace: photosByRace.map((item) => ({
-        raceId: item.raceId,
-        raceName: item.raceName || 'Sin nombre',
-        count: parseInt(item.count, 10),
-      })),
-    };
+      const result = {
+        totalPhotos,
+        processedPhotos,
+        pendingPhotos,
+        totalDetections,
+        photosByRace: photosByRace.map((item) => ({
+          raceId: item.raceId,
+          raceName: item.raceName || 'Sin nombre',
+          count: parseInt(item.count, 10),
+        })),
+      };
+
+      this.logger.log(`Stats retrieved successfully for photographer: ${photographerId}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Error getting stats for photographer ${photographerId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }

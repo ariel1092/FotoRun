@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ShoppingCart, ZoomIn, AlertCircle } from "lucide-react"
+import { ShoppingCart, ZoomIn, AlertCircle, Search } from "lucide-react"
 import { PhotoLightbox } from "@/components/photo-lightbox"
 import { Spinner } from "@/components/ui/spinner"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -31,6 +31,7 @@ interface Photo {
 export function PhotoGallery() {
   const searchParams = useSearchParams()
   const bibNumber = searchParams.get("numero")
+  const raceId = searchParams.get("race")
 
   const [photos, setPhotos] = useState<Photo[]>([])
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set())
@@ -48,8 +49,8 @@ export function PhotoGallery() {
       setError(null)
 
       photosApi
-        .searchByBibNumber(bibNumber)
-        .then((data) => {
+        .searchByBibNumber(bibNumber, raceId && raceId !== "all" ? raceId : undefined)
+        .then((data: any) => {
           setPhotos(Array.isArray(data) ? data : data.photos || [])
         })
         .catch((error) => {
@@ -62,7 +63,7 @@ export function PhotoGallery() {
       setPhotos([])
       setError(null)
     }
-  }, [bibNumber])
+  }, [bibNumber, raceId])
 
   const togglePhotoSelection = (photoId: string) => {
     const newSelection = new Set(selectedPhotos)
@@ -96,17 +97,25 @@ export function PhotoGallery() {
 
   if (!bibNumber) {
     return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>Ingresá un número de dorsal para buscar tus fotos</AlertDescription>
-      </Alert>
+      <div className="text-center py-12 space-y-4">
+        <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+          <Search className="h-8 w-8 text-primary" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold text-foreground">Buscá tus fotos</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Ingresá tu número de dorsal en el formulario de arriba para encontrar todas tus fotos del evento
+          </p>
+        </div>
+      </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner className="h-8 w-8" />
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <Spinner className="h-12 w-12 text-primary" />
+        <p className="text-muted-foreground">Buscando tus fotos...</p>
       </div>
     )
   }
@@ -149,10 +158,10 @@ export function PhotoGallery() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {photos.map((photo) => (
           <Card key={photo.id} className="group relative overflow-hidden">
-            <div className="relative aspect-[3/2] overflow-hidden bg-muted">
+            <div className="relative aspect-3/2 overflow-hidden bg-muted">
               <img
                 src={buildCloudinaryWatermarkedUrl(
-                  `${process.env.NEXT_PUBLIC_API_URL}${photo.url}`,
+                  photo.url,
                   'JERPRO FOTOGRAFIA'
                 )}
                 alt={`Foto ${photo.originalName}`}
@@ -165,7 +174,7 @@ export function PhotoGallery() {
                   className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => setLightboxPhoto(
                     buildCloudinaryWatermarkedUrl(
-                      `${process.env.NEXT_PUBLIC_API_URL}${photo.url}`,
+                      photo.url,
                       'JERPRO FOTOGRAFIA'
                     )
                   )}

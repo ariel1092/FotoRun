@@ -24,9 +24,8 @@ export function HeroSection() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (discipline) {
-      router.push(`/buscar?disciplina=${discipline}`)
-    }
+    // Redirect to search page directly
+    router.push('/buscar')
   }
 
   return (
@@ -40,7 +39,7 @@ export function HeroSection() {
           className="object-cover opacity-40"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/95 via-background/80 to-background" />
+        <div className="absolute inset-0 bg-linear-to-b from-background/95 via-background/80 to-background" />
       </div>
 
       <div className="container relative z-10 flex min-h-[600px] flex-col items-center justify-center py-20 text-center">
@@ -57,25 +56,13 @@ export function HeroSection() {
 
           <form onSubmit={handleSearch} className="mx-auto max-w-md space-y-4">
             <div className="space-y-3">
-              <Select value={discipline} onValueChange={setDiscipline} required>
-                <SelectTrigger className="h-14 text-lg bg-card border-border">
-                  <SelectValue placeholder="Seleccioná tu disciplina" />
-                </SelectTrigger>
-                <SelectContent>
-                  {disciplines.map((disc) => (
-                    <SelectItem key={disc.id} value={disc.id}>
-                      {disc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Button type="submit" size="lg" className="h-14 w-full">
                 <Search className="mr-2 h-5 w-5" />
                 Buscar mis fotos
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-              Primero seleccioná la disciplina, luego podrás buscar por dorsal
+              Hacé clic para buscar tus fotos por número de dorsal
             </p>
           </form>
 

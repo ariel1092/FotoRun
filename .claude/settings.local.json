@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run migration:generate:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

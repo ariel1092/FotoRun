@@ -7,10 +7,52 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "JERPRO - Encontrá tus fotos deportivas",
+  title: "JERPRO - Fotografía Deportiva Profesional",
   description:
-    "Fotografía deportiva profesional. Buscá tus fotos por número de dorsal en eventos de Running, Ciclismo, Enduro y más.",
-  generator: "v0.app",
+    "Encontrá tus fotos de Running, Ciclismo, Enduro y más. Buscá por número de dorsal, seleccioná tus fotos favoritas y descargalas en alta resolución.",
+  keywords: [
+    "fotografía deportiva",
+    "fotos running",
+    "fotos ciclismo",
+    "fotos enduro",
+    "fotos mtb",
+    "fotos trail",
+    "fotos triatlón",
+    "dorsal",
+    "eventos deportivos",
+    "JERPRO",
+  ],
+  authors: [{ name: "JERPRO" }],
+  creator: "JERPRO",
+  publisher: "JERPRO",
+  openGraph: {
+    type: "website",
+    locale: "es_AR",
+    url: "https://jerpro.com.ar",
+    siteName: "JERPRO",
+    title: "JERPRO - Fotografía Deportiva Profesional",
+    description:
+      "Encontrá tus fotos de Running, Ciclismo, Enduro y más. Buscá por número de dorsal.",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "JERPRO - Fotografía Deportiva",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "JERPRO - Fotografía Deportiva Profesional",
+    description:
+      "Encontrá tus fotos de Running, Ciclismo, Enduro y más. Buscá por número de dorsal.",
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function RootLayout({

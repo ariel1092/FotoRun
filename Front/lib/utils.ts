@@ -9,6 +9,11 @@ export function cn(...inputs: ClassValue[]) {
 // Requisitos de entorno: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 export function buildCloudinaryWatermarkedUrl(originalUrl: string, text: string) {
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+
+  // TEMPORAL: Desactivar Cloudinary hasta configurar correctamente
+  // Por ahora devolver URL original de Supabase
+  return originalUrl
+
   if (!cloud || !originalUrl) return originalUrl
 
   // Texto URL-encoded y fuente

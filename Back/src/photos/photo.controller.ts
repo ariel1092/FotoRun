@@ -12,6 +12,7 @@ import {
   Body,
   BadRequestException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,15 +22,27 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { PhotosService } from './photo.service';
 import { Photo } from './photo.entity';
-import { validateImageFile, validateImageFiles } from '../common/utils/file-validation.util';
+import {
+  validateImageFile,
+  validateImageFiles,
+} from '../common/utils/file-validation.util';
 import { QueueService } from '../queue/queue.service';
 
 @Controller('photos')
 export class PhotosController {
+  private queueService: QueueService;
+
   constructor(
     private readonly photosService: PhotosService,
-    private readonly queueService: QueueService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  private getQueueService(): QueueService {
+    if (!this.queueService) {
+      this.queueService = this.moduleRef.get(QueueService, { strict: false });
+    }
+    return this.queueService;
+  }
 
   @Post('upload')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -72,7 +85,7 @@ export class PhotosController {
     );
 
     // Add photo processing job to queue
-    await this.queueService.addPhotoProcessingJob(photo.id, photo.url);
+    await this.getQueueService().addPhotoProcessingJob(photo.id, photo.url);
 
     return photo;
   }
@@ -127,7 +140,7 @@ export class PhotosController {
     const uploadedPhotos = await Promise.all(uploadPromises);
 
     // Add photo processing jobs to queue
-    await this.queueService.addBatchPhotoProcessingJobs(
+    await this.getQueueService().addBatchPhotoProcessingJobs(
       uploadedPhotos.map((photo) => ({
         photoId: photo.id,
         photoUrl: photo.url,
@@ -142,22 +155,29 @@ export class PhotosController {
     };
   }
 
+  // Endpoints específicos deben ir ANTES de los endpoints con parámetros dinámicos
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('photographer', 'admin')
   async getStats(@CurrentUser() user: User) {
-    return await this.photosService.getStats(user.id);
+    try {
+      return await this.photosService.getStats(user.id);
+    } catch (error) {
+      console.error('Error in getStats:', error);
+      throw error;
+    }
   }
 
   @Get('search')
   async searchByBibNumber(
     @Query('bibNumber') bibNumber: string,
+    @Query('raceId') raceId?: string,
   ): Promise<Photo[]> {
     if (!bibNumber) {
       throw new BadRequestException('bibNumber query parameter is required');
     }
 
-    return await this.photosService.findByBibNumber(bibNumber);
+    return await this.photosService.findByBibNumber(bibNumber, raceId);
   }
 
   @Get('race/:raceId')
@@ -165,21 +185,27 @@ export class PhotosController {
     return await this.photosService.findByRace(raceId);
   }
 
-  @Get(':id')
-  async getPhoto(@Param('id') id: string): Promise<Photo> {
-    return await this.photosService.findOne(id);
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('photographer', 'admin')
+  async getAllPhotos(@CurrentUser() user: User): Promise<Photo[]> {
+    try {
+      return await this.photosService.findAllByPhotographer(user.id);
+    } catch (error) {
+      console.error('Error in getAllPhotos:', error);
+      throw error;
+    }
   }
 
+  // Endpoints con parámetros dinámicos deben ir DESPUÉS de los específicos
   @Get(':id/status')
   async getPhotoStatus(@Param('id') id: string) {
     return await this.photosService.getProcessingStatus(id);
   }
 
-  @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('photographer', 'admin')
-  async getAllPhotos(@CurrentUser() user: User): Promise<Photo[]> {
-    return await this.photosService.findAllByPhotographer(user.id);
+  @Get(':id')
+  async getPhoto(@Param('id') id: string): Promise<Photo> {
+    return await this.photosService.findOne(id);
   }
 
   @Delete(':id')

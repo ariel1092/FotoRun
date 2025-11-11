@@ -2,6 +2,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { Injectable, Logger } from '@nestjs/common';
+import { EmailService } from '../email/email.service';
 
 export interface AuthResponse {
   access_token: string;
@@ -30,6 +31,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<UserPayload | null> {
@@ -118,6 +120,24 @@ export class AuthService {
       ...result,
       name: user.getFullName(),
     };
+
+    // Send welcome email asynchronously (don't block registration)
+    this.emailService
+      .sendWelcomeEmail({
+        userName: user.getFullName(),
+        userEmail: user.email,
+      })
+      .then((sent) => {
+        if (sent) {
+          this.logger.log(`✅ Welcome email sent to ${user.email}`);
+        } else {
+          this.logger.warn(`⚠️ Failed to send welcome email to ${user.email}`);
+        }
+      })
+      .catch((error) => {
+        this.logger.error(`❌ Error sending welcome email to ${user.email}: ${error.message}`);
+      });
+
     return this.login(userPayload);
   }
 }

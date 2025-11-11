@@ -170,7 +170,5 @@ export default function UploadPhotosPage() {
             </Card>
           </div>
         </div>
-      </div>
-    </div>
   )
 }

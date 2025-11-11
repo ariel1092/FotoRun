@@ -34,11 +34,11 @@ export class StorageService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_ANON_KEY');
+    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error(
-        'SUPABASE_URL and SUPABASE_ANON_KEY must be configured in .env',
+        'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured in .env',
       );
     }
 
@@ -161,6 +161,7 @@ export class StorageService {
       throw error;
     }
   }
+
 
   /**
    * Delete a file from Supabase Storage

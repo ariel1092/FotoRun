@@ -134,8 +134,12 @@ export const racesApi = {
 }
 
 export const photosApi = {
-  searchByBibNumber(bibNumber: string) {
-    return apiClient.get(`/photos/search?bibNumber=${bibNumber}`, { includeAuth: false })
+  searchByBibNumber(bibNumber: string, raceId?: string) {
+    const params = new URLSearchParams({ bibNumber })
+    if (raceId) {
+      params.append('raceId', raceId)
+    }
+    return apiClient.get(`/photos/search?${params.toString()}`, { includeAuth: false })
   },
 
   getByRaceId(raceId: string) {

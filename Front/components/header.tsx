@@ -39,7 +39,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <img src="/jerpro-logo.png" alt="JERPRO" className="h-8" />
@@ -47,7 +47,7 @@ export function Header() {
 
         <nav className="hidden md:flex items-center gap-6">
           <Link
-            href="/#como-funciona"
+            href="/como-funciona"
             className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
           >
             Cómo funciona
@@ -57,6 +57,12 @@ export function Header() {
             className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
           >
             Buscar fotos
+          </Link>
+          <Link
+            href="/faq"
+            className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+          >
+            FAQ
           </Link>
           {user && getDashboardLink() && (
             <Link

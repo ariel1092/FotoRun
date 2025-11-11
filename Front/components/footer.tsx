@@ -25,10 +25,18 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/#como-funciona"
+                  href="/como-funciona"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cómo funciona
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/faq"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Preguntas frecuentes
                 </Link>
               </li>
             </ul>

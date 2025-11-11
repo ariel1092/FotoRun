@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Race } from './race.entity';
@@ -7,6 +7,8 @@ import { UpdateRaceDto } from './dto/update-race.dto';
 
 @Injectable()
 export class RacesService {
+  private readonly logger = new Logger(RacesService.name);
+
   constructor(
     @InjectRepository(Race)
     private readonly raceRepository: Repository<Race>,
@@ -18,10 +20,18 @@ export class RacesService {
   }
 
   async findAll(): Promise<Race[]> {
-    return await this.raceRepository.find({
-      where: { isActive: true },
-      order: { date: 'DESC' },
-    });
+    try {
+      this.logger.log('Finding all active races');
+      const races = await this.raceRepository.find({
+        where: { isActive: true },
+        order: { date: 'DESC' },
+      });
+      this.logger.log(`Found ${races.length} active races`);
+      return races;
+    } catch (error) {
+      this.logger.error(`Error finding races: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async findActive(): Promise<Race[]> {
