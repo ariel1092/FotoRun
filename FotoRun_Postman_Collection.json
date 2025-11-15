@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "fotorun-api-collection",
 		"name": "FotoRun API - Complete Collection",
-		"description": "Colección completa de endpoints para FotoRun - Plataforma de Fotografía Deportiva\n\n**Backend URL:** http://localhost:8000\n\n**Flujo de uso:**\n1. Registrarse como fotógrafo (POST /auth/register/photographer)\n2. Login (POST /auth/login) - Copia el access_token\n3. Configurar token en Authorization tab\n4. Crear un evento (POST /races)\n5. Subir foto (POST /photos/upload) - Usa el raceId del paso 4\n6. Ver estado de procesamiento (GET /photos/:id/status)\n7. Ver detecciones (GET /detections/photo/:photoId)",
+		"description": "Colección completa de endpoints para FotoRun - Plataforma de Fotografía Deportiva\n\n**Backend URL:** http://localhost:8004\n\n**Flujo de uso:**\n1. Registrarse como fotógrafo (POST /auth/register/photographer)\n2. Login (POST /auth/login) - Copia el access_token\n3. Configurar token en Authorization tab\n4. Crear un evento (POST /races)\n5. Subir foto (POST /photos/upload) - Usa el raceId del paso 4\n6. Ver estado de procesamiento (GET /photos/:id/status)\n7. Ver detecciones (GET /detections/photo/:photoId)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -684,7 +684,7 @@
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost:8000",
+			"value": "http://localhost:8004",
 			"type": "string"
 		},
 		{

@@ -23,17 +23,29 @@ export default function NewEventPage() {
     setIsSubmitting(true)
 
     const formData = new FormData(e.currentTarget)
-    const name = formData.get("name") as string
+    const name = (formData.get("name") as string)?.trim()
     const date = formData.get("date") as string
-    const location = formData.get("location") as string
-    const description = formData.get("description") as string
+    const location = (formData.get("location") as string)?.trim()
+    const description = (formData.get("description") as string)?.trim()
+    const distance = (formData.get("distance") as string)?.trim()
+
+    if (!name || !location) {
+      toast({
+        title: "Campos incompletos",
+        description: "Completá el nombre y la ubicación del evento.",
+        variant: "destructive",
+      })
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       await racesApi.create({
         name,
         date,
-        location: location || undefined,
-        discipline: description || undefined,
+        location,
+        description: description || undefined,
+        distance: distance || undefined,
       })
 
       toast({
@@ -64,32 +76,36 @@ export default function NewEventPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nombre del Evento *</Label>
-                  <Input id="name" placeholder="Ej: Maratón de Buenos Aires 2024" required />
+                  <Input id="name" name="name" placeholder="Ej: Maratón de Buenos Aires 2024" required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="date">Fecha del Evento *</Label>
-                  <Input id="date" type="date" required />
+                  <Input id="date" name="date" type="date" required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="location">Ubicación</Label>
-                  <Input id="location" placeholder="Ej: Buenos Aires, Argentina" />
+                  <Input id="location" name="location" placeholder="Ej: Buenos Aires, Argentina" required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Descripción</Label>
                   <Textarea
                     id="description"
+                    name="description"
                     placeholder="Descripción del evento, distancias, categorías, etc."
                     rows={4}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="price">Precio por Foto (ARS) *</Label>
-                  <Input id="price" type="number" placeholder="500" min="0" step="50" required />
-                  <p className="text-xs text-muted-foreground">Precio sugerido: $500 por foto</p>
+                  <Label htmlFor="distance">Distancias (opcional)</Label>
+                  <Input
+                    id="distance"
+                    name="distance"
+                    placeholder="Ej: 5K, 10K, 21K"
+                  />
                 </div>
 
                 <div className="flex gap-3 pt-4">

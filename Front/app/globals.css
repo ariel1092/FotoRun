@@ -4,8 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Dark sophisticated theme inspired by misfotos.click */
-  /* Deep blacks and dark grays with softer golden/amber accents */
+  /* Dark sophisticated theme with deep blacks and dark grays with softer golden/amber accents */
   --background: oklch(0.08 0.005 264); /* Very dark background #0a0a0a */
   --foreground: oklch(0.98 0.005 264); /* White text */
   --card: oklch(0.15 0.015 240); /* Dark blue-gray cards #1e293b */

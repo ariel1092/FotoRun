@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8004"
 
 export class ApiError extends Error {
   constructor(
@@ -34,11 +34,24 @@ export const apiClient = {
       }
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-    })
+    let response: Response
+    try {
+      response = await fetch(`${API_URL}${endpoint}`, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo realizar la solicitud. Verificá tu conexión."
+      throw new ApiError(
+        0,
+        `Error de red: ${message}`,
+        { cause: message },
+      )
+    }
 
     let responseData: any
     try {

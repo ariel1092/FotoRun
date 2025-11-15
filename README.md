@@ -73,7 +73,7 @@ REDIS_PASSWORD=
 REDIS_DB=0
 
 # Servidor
-PORT=8000
+PORT=8004
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
 ```
@@ -113,9 +113,9 @@ npm run build
 npm run start:prod
 ```
 
-El backend estará disponible en: `http://localhost:8000`
+El backend estará disponible en: `http://localhost:8004`
 
-**Documentación API:** `http://localhost:8000/api` (Swagger)
+**Documentación API:** `http://localhost:8004/api` (Swagger)
 
 ---
 
@@ -134,7 +134,7 @@ Crea un archivo `.env.local` en la carpeta `Front/`:
 
 ```env
 # URL del backend API
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8004
 ```
 
 #### 3.3. Iniciar Frontend
@@ -325,7 +325,7 @@ Ver `Back/.env.example` para la lista completa de variables requeridas.
 ### Frontend (.env.local)
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8004
 ```
 
 ---
