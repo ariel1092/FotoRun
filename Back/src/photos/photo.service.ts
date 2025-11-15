@@ -153,7 +153,16 @@ export class PhotosService {
         `Found ${enhancedDetections.length} enhanced detections for photo ${photoId}`,
       );
 
-      // Save detections to database
+      // 🔧 MEJORA UX: Actualizar estado a "completed" INMEDIATAMENTE después de detectar dorsales
+      // Esto mejora la experiencia del usuario mostrando el resultado rápidamente
+      // El guardado de detecciones puede continuar en segundo plano
+      await this.updateProcessingStatus(photoId, 'completed');
+      photo.isProcessed = true;
+      photo.processedAt = new Date();
+      await this.photoRepository.save(photo);
+      this.logger.log(`Photo ${photoId} status updated to completed (${enhancedDetections.length} detections found)`);
+
+      // Save detections to database (puede continuar después de actualizar el estado)
       for (const enhanced of enhancedDetections) {
         const detection = this.detectionRepository.create({
           photoId: photo.id,
@@ -181,14 +190,6 @@ export class PhotosService {
 
         await this.detectionRepository.save(detection);
       }
-
-      // Update photo status to completed
-      await this.updateProcessingStatus(photoId, 'completed');
-      
-      // Also update isProcessed and processedAt
-      photo.isProcessed = true;
-      photo.processedAt = new Date();
-      await this.photoRepository.save(photo);
 
       this.logger.log(`Photo ${photoId} processed successfully`);
     } catch (error) {
