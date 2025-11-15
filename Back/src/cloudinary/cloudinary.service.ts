@@ -175,13 +175,18 @@ export class CloudinaryService {
 
   /**
    * Get truly original URL without any transformations
-   * 🔧 MEJORA: Para OCR necesitamos la imagen completamente original sin compresión
+   * 🔧 MEJORA: Para OCR necesitamos la imagen completamente original sin compresión ni watermark
    */
   getTrulyOriginalUrl(publicId: string): string {
-    return cloudinary.url(publicId, {
+    // 🔧 CRÍTICO: Retornar URL sin NINGUNA transformación
+    // Esto asegura que no haya watermark, compresión, o resize
+    const url = cloudinary.url(publicId, {
       secure: true,
-      // Sin transformaciones - imagen original completa
+      // NO incluir transformation array - esto retorna la imagen original pura
     });
+    
+    this.logger.debug(`Truly original URL (NO watermark): ${url}`);
+    return url;
   }
 
   /**

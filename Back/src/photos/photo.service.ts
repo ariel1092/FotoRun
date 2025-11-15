@@ -134,10 +134,24 @@ export class PhotosService {
       }
 
       // Download image
+      // 🔧 VERIFICACIÓN: Asegurar que la URL no tenga watermark
+      if (downloadUrl.includes('overlay') || downloadUrl.includes('text:') || downloadUrl.includes('watermark')) {
+        this.logger.error(`❌ ERROR: URL de procesamiento contiene watermark! URL: ${downloadUrl}`);
+        // Forzar uso de URL original
+        if (photo.cloudinaryPublicId) {
+          downloadUrl = `https://res.cloudinary.com/${this.cloudinaryService['configService'].get<string>('CLOUDINARY_CLOUD_NAME')}/image/upload/${photo.cloudinaryPublicId}`;
+          this.logger.log(`✅ URL corregida a original puro: ${downloadUrl}`);
+        }
+      }
+      
+      this.logger.log(`📥 Descargando imagen para procesamiento desde: ${downloadUrl.substring(0, 100)}...`);
       const imageResponse = await axios.get(downloadUrl, {
         responseType: 'arraybuffer',
       });
       const imageBuffer = Buffer.from(imageResponse.data, 'binary');
+      
+      // 🔧 VERIFICACIÓN: Log del tamaño de la imagen descargada
+      this.logger.log(`✅ Imagen descargada: ${imageBuffer.length} bytes (esperado: imagen original sin watermark)`);
 
       // Detect bib numbers with enhanced processing
       // Using lower confidence thresholds to detect more dorsales
