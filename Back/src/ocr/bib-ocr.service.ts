@@ -55,24 +55,16 @@ export class BibOCRService {
       try {
         this.logger.log('Initializing Tesseract OCR worker...');
         
-        // 🔧 MEJORA: Configurar parámetros DURANTE la creación del worker
-        // Esto evita el error "Attempted to set parameters that can only be set during initialization"
-        this.worker = await createWorker(this.defaultConfig.lang || 'eng', {
-          // Configurar parámetros en la inicialización
-          logger: (m) => {
-            // Solo log errores, no info
-            if (m.status === 'recognizing text' && m.progress < 1) {
-              // Silenciar logs de progreso
-            }
-          },
-        });
+        // 🔧 MEJORA: Crear worker sin parámetros adicionales
+        // Los parámetros se configuran después con setParameters
+        this.worker = await createWorker(this.defaultConfig.lang || 'eng');
 
         // Configurar parámetros después de la creación (pero antes de usar)
+        // 🔧 MEJORA: Usar tipos correctos (PSM enum, no string)
         await this.worker.setParameters({
           tessedit_char_whitelist: this.defaultConfig.whitelist || '0123456789',
-          tessedit_pageseg_mode: this.defaultConfig.psm?.toString() || PSM.SINGLE_BLOCK.toString(),
-          // 🔧 MEJORA: NO configurar tessedit_ocr_engine_mode aquí si ya se configuró en createWorker
-          // El oem se configura automáticamente, no necesitamos setearlo de nuevo
+          tessedit_pageseg_mode: this.defaultConfig.psm || PSM.SINGLE_BLOCK,
+          // No configurar tessedit_ocr_engine_mode - se configura automáticamente
         });
 
         this.logger.log('Tesseract OCR worker initialized successfully');
