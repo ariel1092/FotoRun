@@ -652,11 +652,20 @@ export class BibDetectionService {
         const allNumbers = await this.bibOCRService.extractAllBibNumbersFromText(imageBuffer);
         
         // 🔧 FILTRADO ESTRICTO: Solo números que realmente podrían ser dorsales
-        // Priorizar números de 3 dígitos (más comunes) y filtrar números muy largos
+        // Priorizar números de 3-4 dígitos (más comunes) y filtrar números muy largos o muy cortos
         const filteredNumbers = allNumbers.filter(bibNumber => {
           // Validación básica
           if (!this.isValidBibNumber(bibNumber) || this.looksLikeYear(bibNumber)) {
             return false;
+          }
+          
+          // 🔧 MEJORA: Filtrar números de 2 dígitos muy pequeños (< 20)
+          // Estos probablemente son fragmentos o falsos positivos
+          if (bibNumber.length === 2) {
+            const num = parseInt(bibNumber, 10);
+            if (num < 20) {
+              return false;
+            }
           }
           
           // Filtrar números de 5 dígitos que son muy grandes (probablemente falsos positivos)
@@ -675,14 +684,21 @@ export class BibDetectionService {
           return true;
         });
         
-        // Priorizar números de 3 dígitos sobre otros
+        // 🔧 MEJORA: Priorizar números de 3-4 dígitos sobre otros
+        // Los dorsales típicamente tienen 3-4 dígitos, raramente 2 o 5
         const prioritizedNumbers = filteredNumbers.sort((a, b) => {
-          // Preferir 3 dígitos
-          if (a.length === 3 && b.length !== 3) return -1;
-          if (b.length === 3 && a.length !== 3) return 1;
-          // Luego 4 dígitos
+          // Preferir 4 dígitos (más comunes en carreras grandes)
           if (a.length === 4 && b.length !== 4) return -1;
           if (b.length === 4 && a.length !== 4) return 1;
+          // Luego 3 dígitos
+          if (a.length === 3 && b.length !== 3) return -1;
+          if (b.length === 3 && a.length !== 3) return 1;
+          // Evitar números de 2 dígitos si hay mejores opciones
+          if (a.length === 2 && b.length >= 3) return 1;
+          if (b.length === 2 && a.length >= 3) return -1;
+          // Evitar números de 5 dígitos si hay mejores opciones
+          if (a.length === 5 && b.length <= 4) return 1;
+          if (b.length === 5 && a.length <= 4) return -1;
           // Finalmente por longitud
           return a.length - b.length;
         });
