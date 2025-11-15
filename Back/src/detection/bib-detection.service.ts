@@ -399,6 +399,23 @@ export class BibDetectionService {
       if (ocrResult && ocrResult.bibNumber) {
         const minOCRConfidence = options.minOCRConfidence || 0.5;
         
+        // 🔧 CRÍTICO: Si el OCR detectó un número corto (1-2 dígitos) pero Roboflow detectó algo,
+        // intentar OCR más agresivo con múltiples estrategias para encontrar el número completo
+        if (ocrResult.bibNumber.length <= 2 && ocrResult.confidence < 0.7) {
+          this.logger.log(
+            `⚠️ OCR detectó número corto "${ocrResult.bibNumber}" con baja confianza (${ocrResult.confidence.toFixed(2)}). Intentando OCR mejorado...`,
+          );
+          
+          // Intentar OCR mejorado con múltiples estrategias de preprocesamiento
+          const improvedOCR = await this.tryImprovedOCR(mainRegion.buffer, multiCropRegions);
+          if (improvedOCR && improvedOCR.bibNumber.length >= 3) {
+            this.logger.log(
+              `✅ OCR mejorado encontró número completo: "${improvedOCR.bibNumber}" (confianza: ${improvedOCR.confidence.toFixed(2)})`,
+            );
+            ocrResult = improvedOCR;
+          }
+        }
+        
         // 🧠 DESAMBIGUACIÓN MULTIMODAL: Usar contexto visual y textual para validar
         // 🔧 MEJORA: Solo desambiguar si el OCR result es corto (2 dígitos) o si Roboflow es más largo
         // NO desambiguar si el OCR ya tiene 4 dígitos y Roboflow tiene 2 dígitos
