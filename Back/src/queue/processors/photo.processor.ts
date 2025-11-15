@@ -17,7 +17,10 @@ export class PhotoProcessor {
   constructor(
     @Inject(forwardRef(() => PhotosService))
     private readonly photosService: PhotosService,
-  ) {}
+  ) {
+    this.logger.log('✅ PhotoProcessor initialized and ready to process jobs');
+    this.logger.log(`📸 Listening for jobs on queue: ${PHOTO_PROCESSING_QUEUE}`);
+  }
 
   @Process({
     name: 'process-photo',

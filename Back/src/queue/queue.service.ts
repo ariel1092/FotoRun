@@ -30,12 +30,21 @@ export class QueueService {
         photoUrl,
       });
 
+      const waitingCount = await this.photoProcessingQueue.getWaitingCount();
+      const activeCount = await this.photoProcessingQueue.getActiveCount();
+      const completedCount = await this.photoProcessingQueue.getCompletedCount();
+      const failedCount = await this.photoProcessingQueue.getFailedCount();
+      
       this.logger.log(
-        `Photo processing job added to queue: ${photoId} (Job ${job.id})`,
+        `✅ Photo processing job added to queue: ${photoId} (Job ${job.id})`,
       );
       this.logger.log(
-        `Queue state - Waiting: ${await this.photoProcessingQueue.getWaitingCount()}, Active: ${await this.photoProcessingQueue.getActiveCount()}`,
+        `📊 Queue state - Waiting: ${waitingCount}, Active: ${activeCount}, Completed: ${completedCount}, Failed: ${failedCount}`,
       );
+      
+      // Log job details for debugging
+      const jobState = await job.getState();
+      this.logger.log(`📋 Job ${job.id} state: ${jobState}`);
     } catch (error) {
       this.logger.error(
         `Failed to add photo processing job to queue: ${error.message}`,
@@ -58,11 +67,29 @@ export class QueueService {
         }),
       );
 
-      await Promise.all(jobs);
+      const createdJobs = await Promise.all(jobs);
+
+      const waitingCount = await this.photoProcessingQueue.getWaitingCount();
+      const activeCount = await this.photoProcessingQueue.getActiveCount();
+      const completedCount = await this.photoProcessingQueue.getCompletedCount();
+      const failedCount = await this.photoProcessingQueue.getFailedCount();
 
       this.logger.log(
-        `Added ${photos.length} photo processing jobs to queue`,
+        `✅ Added ${photos.length} photo processing jobs to queue`,
       );
+      this.logger.log(
+        `📊 Queue state - Waiting: ${waitingCount}, Active: ${activeCount}, Completed: ${completedCount}, Failed: ${failedCount}`,
+      );
+      
+      // Log job IDs for debugging
+      const jobIds = createdJobs.map(j => j.id).join(', ');
+      this.logger.log(`📋 Created job IDs: ${jobIds}`);
+      
+      // Check job states
+      for (const job of createdJobs) {
+        const state = await job.getState();
+        this.logger.log(`📋 Job ${job.id} state: ${state}`);
+      }
     } catch (error) {
       this.logger.error(
         `Failed to add batch photo processing jobs to queue: ${error.message}`,
