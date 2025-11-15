@@ -1,4 +1,11 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8004"
+// Normalizar API URL para evitar doble barra
+const getApiUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8004"
+  // Remover barra final si existe
+  return url.endsWith('/') ? url.slice(0, -1) : url
+}
+
+const API_URL = getApiUrl()
 
 export class ApiError extends Error {
   constructor(
@@ -34,9 +41,12 @@ export const apiClient = {
       }
     }
 
+    // Asegurar que endpoint empiece con /
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+
     let response: Response
     try {
-      response = await fetch(`${API_URL}${endpoint}`, {
+      response = await fetch(`${API_URL}${normalizedEndpoint}`, {
         method,
         headers,
         body: data ? JSON.stringify(data) : undefined,
