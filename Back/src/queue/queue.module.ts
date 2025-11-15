@@ -31,15 +31,22 @@ import { PHOTO_PROCESSING_QUEUE } from './queue.constants';
             password: redisPassword,
             db: redisDb,
             retryStrategy: (times: number) => {
-              if (times > 10) {
+              if (times > 20) {
                 logger.error('❌ Redis: Máximo de reintentos alcanzado. Verifica la configuración.');
+                logger.error(`   Host configurado: ${redisHost}`);
+                logger.error(`   Port configurado: ${redisPort}`);
+                logger.error('   💡 Verifica que el servicio Redis esté creado en Render y que las variables de entorno estén configuradas.');
                 return null;
               }
               const delay = Math.min(times * 200, 2000);
-              logger.warn(`⚠️  Redis: Reintentando conexión (intento ${times}) en ${delay}ms...`);
+              if (times % 5 === 0) {
+                logger.warn(`⚠️  Redis: Reintentando conexión (intento ${times}/20) en ${delay}ms...`);
+              }
               return delay;
             },
             maxRetriesPerRequest: 3,
+            enableReadyCheck: false, // No fallar inmediatamente si Redis no está disponible
+            lazyConnect: true, // Conectar solo cuando sea necesario
           },
           defaultJobOptions: {
             removeOnComplete: 100,
