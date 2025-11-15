@@ -252,24 +252,24 @@ export default function PhotosPage() {
                   alt={photo.originalName}
                   className="w-full h-full object-cover"
                 />
-                {/* Overlay con botones - siempre visible en móvil, hover en desktop */}
-                <div className="absolute inset-0 bg-black/40 sm:bg-black/0 sm:group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                  <div className="flex gap-2 sm:gap-2">
+                {/* Overlay con botones - solo hover en desktop */}
+                <div className="hidden sm:flex absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="flex gap-2">
                     <Button 
                       variant="secondary" 
                       size="sm" 
                       asChild
-                      className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                      className="min-h-[32px] min-w-[32px]"
                     >
                       <Link href={`/fotografo/fotos/${photo.id}`} aria-label="Ver detalles">
-                        <Eye className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <Eye className="h-4 w-4" />
                       </Link>
                     </Button>
                     <Button 
                       variant="secondary" 
                       size="sm" 
                       asChild
-                      className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                      className="min-h-[32px] min-w-[32px]"
                     >
                       <a 
                         href={photo.url} 
@@ -278,7 +278,7 @@ export default function PhotosPage() {
                         rel="noopener noreferrer"
                         aria-label="Descargar foto"
                       >
-                        <Download className="h-5 w-5 sm:h-4 sm:w-4" />
+                        <Download className="h-4 w-4" />
                       </a>
                     </Button>
                     <AlertDialog>
@@ -287,10 +287,10 @@ export default function PhotosPage() {
                           variant="secondary"
                           size="sm"
                           disabled={deletingPhotoId === photo.id}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[32px] min-w-[32px]"
                           aria-label="Eliminar foto"
                         >
-                          <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -317,7 +317,69 @@ export default function PhotosPage() {
                   {getStatusBadge(photo.processingStatus || "pending")}
                 </div>
               </div>
-              <div className="p-3 sm:p-3 space-y-2">
+              {/* Botones siempre visibles en móvil, debajo de la imagen */}
+              <div className="sm:hidden p-3 border-t border-border bg-card">
+                <div className="flex gap-2 justify-center">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    asChild
+                    className="flex-1 min-h-[44px]"
+                  >
+                    <Link href={`/fotografo/fotos/${photo.id}`}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    asChild
+                    className="flex-1 min-h-[44px]"
+                  >
+                    <a 
+                      href={photo.url} 
+                      download 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Descargar
+                    </a>
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={deletingPhotoId === photo.id}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px]"
+                        aria-label="Eliminar foto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar foto?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          ¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+              <div className="hidden sm:block p-3 sm:p-3 space-y-2">
                 <p className="text-xs sm:text-xs text-muted-foreground truncate">
                   {photo.originalName}
                 </p>
@@ -329,6 +391,30 @@ export default function PhotosPage() {
                     <Link
                       href={`/fotografo/eventos/${photo.race.id}`}
                       className="text-primary hover:underline min-h-[44px] flex items-center"
+                    >
+                      {photo.race.name}
+                    </Link>
+                  )}
+                </div>
+                {photo.processingError && (
+                  <p className="text-xs text-red-500 truncate" title={photo.processingError}>
+                    Error: {photo.processingError}
+                  </p>
+                )}
+              </div>
+              {/* Info adicional en móvil */}
+              <div className="sm:hidden p-3 pt-2 space-y-1 border-t border-border">
+                <p className="text-xs text-muted-foreground truncate">
+                  {photo.originalName}
+                </p>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {photo.detections?.length || 0} dorsales
+                  </span>
+                  {photo.race && (
+                    <Link
+                      href={`/fotografo/eventos/${photo.race.id}`}
+                      className="text-primary hover:underline"
                     >
                       {photo.race.name}
                     </Link>
