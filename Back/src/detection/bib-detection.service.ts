@@ -286,6 +286,15 @@ export class BibDetectionService {
     const area = detection.width * detection.height;
     const isLikelyHorizontal = aspectRatio > 1.5; // Dorsales suelen ser horizontales
     
+    // 🔧 MEJORA: Filtrar detecciones que NO están en la región del torso
+    // Esto elimina falsos positivos en cielo, suelo, o extremidades
+    if (!this.isInTorsoRegion(detection.y, detection.height, imageHeight)) {
+      this.logger.debug(
+        `Detección filtrada: fuera de región del torso (y: ${detection.y.toFixed(0)}, altura imagen: ${imageHeight})`,
+      );
+      return null; // Descartar detección fuera del torso
+    }
+    
     // SOLUCIÓN 1: Expansión adaptativa aumentada a 220-250% para evitar cortes
     // Más expansión horizontal para dorsales largos (4-5 dígitos)
     const horizontalExpansion = isLikelyHorizontal ? 220 : 200; // 220% para horizontales, 200% para verticales
@@ -302,6 +311,12 @@ export class BibDetectionService {
       horizontalExpansion,
       verticalExpansion,
     );
+    
+    // Si refineBoundingBox retorna null (fuera de límites), descartar
+    if (!expanded) {
+      this.logger.debug('Bounding box refinado está fuera de límites, descartando detección');
+      return null;
+    }
 
     this.logger.debug(
       `Original bbox: (${detection.x.toFixed(0)}, ${detection.y.toFixed(0)}, ${detection.width.toFixed(0)}x${detection.height.toFixed(0)}, aspect: ${aspectRatio.toFixed(2)}) -> ` +
