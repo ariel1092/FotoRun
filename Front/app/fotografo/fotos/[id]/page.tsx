@@ -74,11 +74,14 @@ export default function PhotoDetailPage() {
       setPollingStartTime(startTime)
     }
 
-    const interval = setInterval(async () => {
+    let intervalId: NodeJS.Timeout | null = null
+
+    const pollStatus = async () => {
       try {
         const data = await photosApi.getById(photoId)
         const newStatus = data.processingStatus || "pending"
         
+        // 🔧 MEJORA: Actualizar estado inmediatamente
         setPhoto(data)
         setStatus({
           status: newStatus,
@@ -92,7 +95,10 @@ export default function PhotoDetailPage() {
           setPolling(false)
           pollingStartTimeRef.current = null
           setPollingStartTime(null)
-          clearInterval(interval)
+          if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+          }
           
           if (newStatus === "completed") {
             toast({
@@ -115,7 +121,10 @@ export default function PhotoDetailPage() {
           setPolling(false)
           pollingStartTimeRef.current = null
           setPollingStartTime(null)
-          clearInterval(interval)
+          if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+          }
           toast({
             title: "Tiempo de espera agotado",
             description: "El procesamiento está tardando más de lo esperado. Por favor, recargá la página o contactá soporte.",
@@ -125,10 +134,18 @@ export default function PhotoDetailPage() {
       } catch (error) {
         console.error("Error fetching status:", error)
       }
-    }, 5000) // Every 5 seconds
+    }
+
+    // Ejecutar inmediatamente la primera vez
+    pollStatus()
+
+    // Luego ejecutar cada 3 segundos (más frecuente para mejor UX)
+    intervalId = setInterval(pollStatus, 3000)
 
     return () => {
-      clearInterval(interval)
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
     }
   }, [photoId, photo?.processingStatus])
 
