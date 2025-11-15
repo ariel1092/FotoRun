@@ -104,6 +104,8 @@ export class PhotosService {
 
   async processPhoto(photoId: string, photoUrl: string): Promise<void> {
     try {
+      // Update status to processing first
+      await this.updateProcessingStatus(photoId, 'processing');
       this.logger.log(`Processing photo: ${photoId}`);
 
       const photo = await this.photoRepository.findOne({
@@ -178,11 +180,12 @@ export class PhotosService {
         await this.detectionRepository.save(detection);
       }
 
-      // Update photo status
+      // Update photo status to completed
+      await this.updateProcessingStatus(photoId, 'completed');
+      
+      // Also update isProcessed and processedAt
       photo.isProcessed = true;
       photo.processedAt = new Date();
-      photo.processingStatus = 'completed';
-      photo.processingError = null;
       await this.photoRepository.save(photo);
 
       this.logger.log(`Photo ${photoId} processed successfully`);

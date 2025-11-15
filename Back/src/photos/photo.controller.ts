@@ -11,6 +11,7 @@ import {
   UseGuards,
   Body,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
@@ -30,6 +31,7 @@ import { QueueService } from '../queue/queue.service';
 
 @Controller('photos')
 export class PhotosController {
+  private readonly logger = new Logger(PhotosController.name);
   private queueService: QueueService;
 
   constructor(
@@ -84,8 +86,31 @@ export class PhotosController {
       user.id,
     );
 
-    // Add photo processing job to queue
-    await this.getQueueService().addPhotoProcessingJob(photo.id, photo.url);
+    // Try to add photo processing job to queue
+    // If queue is not available, process directly
+    try {
+      await this.getQueueService().addPhotoProcessingJob(photo.id, photo.url);
+      this.logger.log(`Photo ${photo.id} added to processing queue`);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to add photo ${photo.id} to queue: ${error.message}. Processing directly...`,
+      );
+      // Fallback: process photo directly if queue is not available
+      // Process in background without blocking the response
+      this.photosService
+        .processPhoto(photo.id, photo.url)
+        .catch((processError) => {
+          this.logger.error(
+            `Error processing photo ${photo.id} directly: ${processError.message}`,
+          );
+          // Update status to failed
+          this.photosService
+            .updateProcessingStatus(photo.id, 'failed', processError.message)
+            .catch(() => {
+              // Ignore errors updating status
+            });
+        });
+    }
 
     return photo;
   }
@@ -139,13 +164,40 @@ export class PhotosController {
 
     const uploadedPhotos = await Promise.all(uploadPromises);
 
-    // Add photo processing jobs to queue
-    await this.getQueueService().addBatchPhotoProcessingJobs(
-      uploadedPhotos.map((photo) => ({
-        photoId: photo.id,
-        photoUrl: photo.url,
-      })),
-    );
+    // Try to add photo processing jobs to queue
+    // If queue is not available, process directly
+    try {
+      await this.getQueueService().addBatchPhotoProcessingJobs(
+        uploadedPhotos.map((photo) => ({
+          photoId: photo.id,
+          photoUrl: photo.url,
+        })),
+      );
+      this.logger.log(
+        `${uploadedPhotos.length} photos added to processing queue`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to add photos to queue: ${error.message}. Processing directly...`,
+      );
+      // Fallback: process photos directly if queue is not available
+      // Process in background without blocking the response
+      uploadedPhotos.forEach((photo) => {
+        this.photosService
+          .processPhoto(photo.id, photo.url)
+          .catch((processError) => {
+            this.logger.error(
+              `Error processing photo ${photo.id} directly: ${processError.message}`,
+            );
+            // Update status to failed
+            this.photosService
+              .updateProcessingStatus(photo.id, 'failed', processError.message)
+              .catch(() => {
+                // Ignore errors updating status
+              });
+          });
+      });
+    }
 
     photos.push(...uploadedPhotos);
 
