@@ -174,17 +174,26 @@ export class PhotosController {
     );
 
     let uploadedPhotos = await Promise.all(uploadPromises);
+    this.logger.log(`Uploaded ${uploadedPhotos.length} photos, updating status to processing...`);
 
     // Update status to processing FIRST for all photos (before adding to queue)
     // This ensures immediate feedback even if queue fails
-    await Promise.all(
-      uploadedPhotos.map((photo) =>
-        this.photosService.updateProcessingStatus(photo.id, 'processing'),
-      ),
-    );
-    this.logger.log(
-      `${uploadedPhotos.length} photos status updated to processing`,
-    );
+    try {
+      await Promise.all(
+        uploadedPhotos.map((photo) => {
+          this.logger.log(`Updating photo ${photo.id} status to processing`);
+          return this.photosService.updateProcessingStatus(photo.id, 'processing');
+        }),
+      );
+      this.logger.log(
+        `✅ ${uploadedPhotos.length} photos status updated to processing`,
+      );
+    } catch (statusError) {
+      this.logger.error(
+        `❌ Error updating photos status to processing: ${statusError.message}`,
+      );
+      // Continue anyway - try to add to queue
+    }
 
     // Try to add photo processing jobs to queue
     // If queue is not available, process directly
