@@ -1555,8 +1555,15 @@ export class BibDetectionService {
       if (ocrResult.bibNumber && this.isValidBibNumber(ocrResult.bibNumber)) {
         let score = ocrResult.confidence || 0.5;
         
-        // Bonus por longitud (preferir números más largos)
-        if (ocrResult.bibNumber.length >= 4) score += 0.1;
+        // 🔧 MEJORA: Bonus MUY grande por longitud (preferir números más largos)
+        // Números de 4 dígitos son mucho más confiables que números de 2 dígitos
+        if (ocrResult.bibNumber.length === 4) {
+          score += 0.3; // Bonus grande para 4 dígitos
+        } else if (ocrResult.bibNumber.length === 3) {
+          score += 0.2; // Bonus medio para 3 dígitos
+        } else if (ocrResult.bibNumber.length === 2) {
+          score -= 0.2; // Penalizar números de 2 dígitos
+        }
         
         // Bonus si coincide con Roboflow (consensus)
         if (roboflowBibNumber && ocrResult.bibNumber === roboflowBibNumber) {
@@ -1578,6 +1585,16 @@ export class BibDetectionService {
       // Candidato 2: Roboflow (si es válido)
       if (roboflowBibNumber && this.isValidBibNumber(roboflowBibNumber)) {
         let score = detection.confidence;
+        
+        // 🔧 MEJORA: Penalizar números de Roboflow si son muy cortos
+        // Roboflow a menudo detecta fragmentos parciales (2 dígitos) cuando el OCR detecta el número completo
+        if (roboflowBibNumber.length === 2) {
+          score -= 0.3; // Penalizar fuertemente números de 2 dígitos de Roboflow
+        } else if (roboflowBibNumber.length === 3) {
+          score += 0.1; // Bonus pequeño para 3 dígitos
+        } else if (roboflowBibNumber.length === 4) {
+          score += 0.2; // Bonus para 4 dígitos
+        }
         
         // Bonus si coincide con OCR
         if (ocrResult.bibNumber === roboflowBibNumber) {
