@@ -156,17 +156,31 @@ export class BibDetectionService {
             // 2. Tienen confianza razonable (> 0.5)
             // 3. Son válidos según priors de dominio
             const validOCRDetections = ocrDetections.filter(ocrDet => {
-              // Si ya tenemos una buena detección de Roboflow, ser muy estricto
+              // Validación básica
+              if (!this.isValidBibNumber(ocrDet.bibNumber) || this.looksLikeYear(ocrDet.bibNumber)) {
+                return false;
+              }
+              
+              // 🔧 MEJORA: Priorizar números de 4 dígitos del OCR completo sobre detecciones cortas de Roboflow
+              // Si el OCR completo encontró un número de 4 dígitos, es muy probable que sea correcto
+              const is4Digits = ocrDet.bibNumber.length === 4;
+              const is3Digits = ocrDet.bibNumber.length === 3;
+              
+              // Si ya tenemos una buena detección de Roboflow, ser estricto PERO...
               if (hasGoodRoboflowDetection) {
-                // Solo agregar si tiene alta confianza y es diferente
+                // ...si el OCR completo encontró un número de 4 dígitos, priorizarlo
+                if (is4Digits) {
+                  // Números de 4 dígitos del OCR completo son muy confiables, aceptar con confianza > 0.5
+                  return ocrDet.confidence > 0.5 && 
+                         !enhancedDetections.some(existing => existing.bibNumber === ocrDet.bibNumber);
+                }
+                // Para otros números, requerir alta confianza
                 return ocrDet.confidence > 0.7 && 
                        !enhancedDetections.some(existing => existing.bibNumber === ocrDet.bibNumber);
               }
               
               // Si no hay buena detección de Roboflow, ser más permisivo pero aún filtrar
-              return ocrDet.confidence > 0.5 &&
-                     this.isValidBibNumber(ocrDet.bibNumber) &&
-                     !this.looksLikeYear(ocrDet.bibNumber);
+              return ocrDet.confidence > 0.5;
             });
             
             // Merge solo detecciones válidas
@@ -739,12 +753,18 @@ export class BibDetectionService {
         
         // For each number found, create a detection
         for (const bibNumber of limitedNumbers) {
+          // 🔧 MEJORA: Dar mayor confianza a números de 4 dígitos del OCR completo
+          // Estos son muy confiables y deben priorizarse sobre detecciones cortas de Roboflow
+          const confidence = bibNumber.length === 4 ? 0.75 : // Alta confianza para 4 dígitos
+                            bibNumber.length === 3 ? 0.65 : // Confianza media para 3 dígitos
+                            0.5; // Confianza baja para otros
+          
           // Create approximate detection (we don't have exact position)
           detections.push({
             bibNumber,
-            confidence: bibNumber.length === 3 ? 0.6 : 0.5, // Menor confianza para OCR completo
+            confidence,
             detectionConfidence: 0.3,
-            ocrConfidence: bibNumber.length === 3 ? 0.6 : 0.5,
+            ocrConfidence: confidence,
             x: width * 0.25,
             y: height * 0.25,
             width: width * 0.5,
