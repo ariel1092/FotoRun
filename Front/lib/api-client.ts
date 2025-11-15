@@ -140,7 +140,7 @@ export const adminApi = {
 
 export const racesApi = {
   getAll() {
-    return apiClient.get("/races", { includeAuth: false })
+    return apiClient.get("/races", { includeAuth: true })
   },
 
   getActive() {

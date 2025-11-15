@@ -17,19 +17,33 @@ export class RacesService {
     private readonly photosService: PhotosService,
   ) {}
 
-  async create(data: CreateRaceDto): Promise<Race> {
-    const race = this.raceRepository.create(data);
+  async create(data: CreateRaceDto, userId?: string): Promise<Race> {
+    const race = this.raceRepository.create({
+      ...data,
+      createdBy: userId || null,
+    });
     return await this.raceRepository.save(race);
   }
 
-  async findAll(): Promise<Race[]> {
+  async findAll(userId?: string, userRole?: string): Promise<Race[]> {
     try {
-      this.logger.log('Finding all active races');
+      this.logger.log(`Finding races for user: ${userId}, role: ${userRole}`);
+      
+      // Si es admin, puede ver todos los eventos
+      // Si es photographer, solo ve sus eventos
+      // Si no está autenticado o es user, ve todos los eventos activos (para búsqueda pública)
+      const where: any = { isActive: true };
+      
+      if (userRole === 'photographer' && userId) {
+        where.createdBy = userId;
+        this.logger.log(`Filtering races by photographer: ${userId}`);
+      }
+      
       const races = await this.raceRepository.find({
-        where: { isActive: true },
+        where,
         order: { date: 'DESC' },
       });
-      this.logger.log(`Found ${races.length} active races`);
+      this.logger.log(`Found ${races.length} races`);
       return races;
     } catch (error) {
       this.logger.error(`Error finding races: ${error.message}`, error.stack);
@@ -37,14 +51,22 @@ export class RacesService {
     }
   }
 
-  async findActive(): Promise<Race[]> {
+  async findActive(userId?: string, userRole?: string): Promise<Race[]> {
+    // Para búsqueda pública (sin autenticación), mostrar todos los eventos activos
+    // Si está autenticado como photographer, solo sus eventos
+    const where: any = { isActive: true };
+    
+    if (userRole === 'photographer' && userId) {
+      where.createdBy = userId;
+    }
+    
     return await this.raceRepository.find({
-      where: { isActive: true },
+      where,
       order: { date: 'DESC' },
     });
   }
 
-  async findOne(id: string): Promise<Race> {
+  async findOne(id: string, userId?: string, userRole?: string): Promise<Race> {
     const race = await this.raceRepository.findOne({
       where: { id },
       relations: ['photos'],
@@ -54,11 +76,22 @@ export class RacesService {
       throw new NotFoundException(`Race with ID ${id} not found`);
     }
 
+    // Si es photographer y no es el dueño, no puede verlo
+    if (userRole === 'photographer' && userId && race.createdBy !== userId) {
+      throw new NotFoundException(`Race with ID ${id} not found`);
+    }
+
     return race;
   }
 
-  async update(id: string, data: UpdateRaceDto): Promise<Race> {
-    const race = await this.findOne(id);
+  async update(id: string, data: UpdateRaceDto, userId?: string, userRole?: string): Promise<Race> {
+    const race = await this.findOne(id, userId, userRole);
+    
+    // Si es photographer y no es el dueño, no puede actualizarlo
+    if (userRole === 'photographer' && userId && race.createdBy !== userId) {
+      throw new NotFoundException(`Race with ID ${id} not found`);
+    }
+    
     Object.assign(race, data);
     return await this.raceRepository.save(race);
   }
@@ -67,8 +100,14 @@ export class RacesService {
    * 🗑️ Desactivar evento (soft delete)
    * Solo marca el evento como inactivo, no elimina las fotos
    */
-  async remove(id: string): Promise<void> {
-    const race = await this.findOne(id);
+  async remove(id: string, userId?: string, userRole?: string): Promise<void> {
+    const race = await this.findOne(id, userId, userRole);
+    
+    // Si es photographer y no es el dueño, no puede desactivarlo
+    if (userRole === 'photographer' && userId && race.createdBy !== userId) {
+      throw new NotFoundException(`Race with ID ${id} not found`);
+    }
+    
     race.isActive = false;
     await this.raceRepository.save(race);
     this.logger.log(`Race ${id} deactivated (soft delete)`);

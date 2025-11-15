@@ -31,6 +31,9 @@ export class Race {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'uuid', nullable: true, name: 'createdBy' })
+  createdBy: string | null; // ID del usuario que creó el evento
+
   @OneToMany('Photo', 'race')
   photos: Photo[];
 
