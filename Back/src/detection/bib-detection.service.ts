@@ -183,28 +183,39 @@ export class BibDetectionService {
               return ocrDet.confidence > 0.5;
             });
             
-            // Merge solo detecciones válidas
+            // 🔧 MEJORA: Merge inteligente que prioriza números más largos
             for (const ocrDet of validOCRDetections) {
-              // Check if we already have this bib number
-              const exists = enhancedDetections.some(existing => 
+              // Check if we already have this exact bib number
+              const existingIndex = enhancedDetections.findIndex(existing => 
                 existing.bibNumber === ocrDet.bibNumber
               );
               
-              // Also check if OCR detection is better (longer number or higher confidence)
-              const isBetter = enhancedDetections.some(existing => 
-                existing.bibNumber === ocrDet.bibNumber &&
-                (existing.bibNumber.length < ocrDet.bibNumber.length ||
-                 existing.confidence < ocrDet.confidence)
-              );
-              
-              if (!exists || isBetter) {
-                if (isBetter) {
-                  // Replace existing with better OCR detection
-                  const index = enhancedDetections.findIndex(d => d.bibNumber === ocrDet.bibNumber);
-                  if (index >= 0) {
-                    enhancedDetections[index] = ocrDet;
-                  }
-                } else if (!exists) {
+              if (existingIndex >= 0) {
+                // Ya existe este número exacto - reemplazar si el OCR tiene mayor confianza
+                if (ocrDet.confidence > enhancedDetections[existingIndex].confidence) {
+                  enhancedDetections[existingIndex] = ocrDet;
+                  this.logger.log(
+                    `Reemplazando detección existente "${ocrDet.bibNumber}" con versión de mayor confianza del OCR completo`,
+                  );
+                }
+              } else {
+                // 🔧 MEJORA: Si el OCR completo encontró un número más largo, reemplazar números cortos existentes
+                // Por ejemplo, si OCR encuentra "1523" (4 dígitos) y existe "12" (2 dígitos), reemplazar
+                const shorterExistingIndex = enhancedDetections.findIndex(existing => 
+                  existing.bibNumber.length < ocrDet.bibNumber.length &&
+                  ocrDet.bibNumber.length >= 3 && // OCR tiene 3+ dígitos
+                  existing.bibNumber.length <= 2 // Existente tiene 2 o menos dígitos
+                );
+                
+                if (shorterExistingIndex >= 0) {
+                  // Reemplazar detección corta con detección larga del OCR
+                  const replaced = enhancedDetections[shorterExistingIndex];
+                  enhancedDetections[shorterExistingIndex] = ocrDet;
+                  this.logger.log(
+                    `Reemplazando detección corta "${replaced.bibNumber}" (${replaced.bibNumber.length} dígitos) con "${ocrDet.bibNumber}" (${ocrDet.bibNumber.length} dígitos) del OCR completo`,
+                  );
+                } else {
+                  // Agregar nueva detección
                   enhancedDetections.push(ocrDet);
                 }
               }
