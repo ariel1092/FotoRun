@@ -175,6 +175,17 @@ export class PhotosController {
 
     let uploadedPhotos = await Promise.all(uploadPromises);
 
+    // Update status to processing FIRST for all photos (before adding to queue)
+    // This ensures immediate feedback even if queue fails
+    await Promise.all(
+      uploadedPhotos.map((photo) =>
+        this.photosService.updateProcessingStatus(photo.id, 'processing'),
+      ),
+    );
+    this.logger.log(
+      `${uploadedPhotos.length} photos status updated to processing`,
+    );
+
     // Try to add photo processing jobs to queue
     // If queue is not available, process directly
     try {
@@ -186,15 +197,6 @@ export class PhotosController {
       );
       this.logger.log(
         `${uploadedPhotos.length} photos added to processing queue`,
-      );
-      // Update status to processing FIRST for all photos (before adding to queue)
-      await Promise.all(
-        uploadedPhotos.map((photo) =>
-          this.photosService.updateProcessingStatus(photo.id, 'processing'),
-        ),
-      );
-      this.logger.log(
-        `${uploadedPhotos.length} photos status updated to processing`,
       );
       // Reload photos to get updated status
       uploadedPhotos = await Promise.all(
