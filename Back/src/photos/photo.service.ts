@@ -133,18 +133,25 @@ export class PhotosService {
         this.logger.warn(`⚠️ Photo ${photoId} doesn't have cloudinaryPublicId, using provided URL (may have watermark): ${downloadUrl}`);
       }
 
-      // Download image
-      // 🔧 VERIFICACIÓN: Asegurar que la URL no tenga watermark
-      if (downloadUrl.includes('overlay') || downloadUrl.includes('text:') || downloadUrl.includes('watermark')) {
-        this.logger.error(`❌ ERROR: URL de procesamiento contiene watermark! URL: ${downloadUrl}`);
-        // Forzar uso de URL original
+      // 🔧 VERIFICACIÓN CRÍTICA: Asegurar que la URL NO tenga watermark
+      // Si la URL contiene cualquier indicador de watermark, construir URL original pura
+      if (downloadUrl.includes('overlay') || 
+          downloadUrl.includes('text:') || 
+          downloadUrl.includes('watermark') || 
+          downloadUrl.includes('JERPRO') ||
+          downloadUrl.includes('Arial') ||
+          downloadUrl.includes('l_text:')) {
+        this.logger.error(`❌ ERROR: URL de procesamiento contiene watermark! URL: ${downloadUrl.substring(0, 150)}`);
+        // Forzar uso de URL original pura sin transformaciones
         if (photo.cloudinaryPublicId) {
-          downloadUrl = `https://res.cloudinary.com/${this.cloudinaryService['configService'].get<string>('CLOUDINARY_CLOUD_NAME')}/image/upload/${photo.cloudinaryPublicId}`;
-          this.logger.log(`✅ URL corregida a original puro: ${downloadUrl}`);
+          // Construir URL original pura: https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}
+          const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dlyty4dz4';
+          downloadUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${photo.cloudinaryPublicId}`;
+          this.logger.log(`✅ URL corregida a original puro (SIN watermark): ${downloadUrl}`);
         }
       }
       
-      this.logger.log(`📥 Descargando imagen para procesamiento desde: ${downloadUrl.substring(0, 100)}...`);
+      this.logger.log(`📥 Descargando imagen para procesamiento desde: ${downloadUrl.substring(0, 120)}...`);
       const imageResponse = await axios.get(downloadUrl, {
         responseType: 'arraybuffer',
       });
@@ -152,6 +159,11 @@ export class PhotosService {
       
       // 🔧 VERIFICACIÓN: Log del tamaño de la imagen descargada
       this.logger.log(`✅ Imagen descargada: ${imageBuffer.length} bytes (esperado: imagen original sin watermark)`);
+      
+      // 🔧 VERIFICACIÓN ADICIONAL: Verificar que la URL usada no tenga transformaciones
+      if (downloadUrl.includes('/v1/') || downloadUrl.includes('/v2/')) {
+        this.logger.warn(`⚠️ URL contiene versión (v1/v2), puede tener transformaciones. URL: ${downloadUrl.substring(0, 150)}`);
+      }
 
       // Detect bib numbers with enhanced processing
       // Using lower confidence thresholds to detect more dorsales
