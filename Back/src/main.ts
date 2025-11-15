@@ -26,6 +26,11 @@ async function bootstrap() {
   // CORS - Configuración para desarrollo y producción
   const isDevelopment = process.env.NODE_ENV !== 'production';
 
+  // Log de configuración para debugging
+  console.log(`🔧 CORS Config - NODE_ENV: ${process.env.NODE_ENV || 'undefined'}`);
+  console.log(`🔧 CORS Config - CORS_ORIGIN: ${process.env.CORS_ORIGIN || 'undefined'}`);
+  console.log(`🔧 CORS Config - isDevelopment: ${isDevelopment}`);
+
   const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
     : isDevelopment
@@ -36,6 +41,8 @@ async function bootstrap() {
           'http://localhost:3002', // Alternative port
         ]
       : []; // En producción, no permitir ningún origen por defecto
+
+  console.log(`✅ CORS - Orígenes permitidos: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'NINGUNO (configura CORS_ORIGIN en Render!)'}`);
 
   app.enableCors({
     origin: (
