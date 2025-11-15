@@ -200,57 +200,45 @@ export class BibDetectionService {
               return true;
             });
             
-            // 🔧 MEJORA: Merge inteligente que prioriza números más largos y números en rangos comunes
+            // 🔧 MEJORA: Merge MUY restrictivo - solo agregar si realmente es válido
+            // Limitar a máximo 2 detecciones adicionales del OCR completo
+            const maxAdditionalDetections = 2;
+            let addedCount = 0;
+            
             for (const ocrDet of validOCRDetections) {
+              if (addedCount >= maxAdditionalDetections) {
+                break; // Ya agregamos suficientes
+              }
+              
               // Check if we already have this exact bib number
               const existingIndex = enhancedDetections.findIndex(existing => 
                 existing.bibNumber === ocrDet.bibNumber
               );
               
               if (existingIndex >= 0) {
-                // Ya existe este número exacto - reemplazar si el OCR tiene mayor confianza
-                if (ocrDet.confidence > enhancedDetections[existingIndex].confidence) {
+                // Ya existe - solo reemplazar si el OCR tiene MUCHA mayor confianza
+                if (ocrDet.confidence > enhancedDetections[existingIndex].confidence + 0.15) {
                   enhancedDetections[existingIndex] = ocrDet;
                   this.logger.log(
-                    `Reemplazando detección existente "${ocrDet.bibNumber}" con versión de mayor confianza del OCR completo`,
+                    `Reemplazando detección existente "${ocrDet.bibNumber}" con versión de mayor confianza del OCR (${ocrDet.confidence.toFixed(2)} vs ${enhancedDetections[existingIndex].confidence.toFixed(2)})`,
                   );
                 }
               } else {
-                // 🔧 MEJORA: Si el OCR completo encontró un número más largo, reemplazar números cortos existentes
-                // Por ejemplo, si OCR encuentra "2107" (4 dígitos) y existe "12" (2 dígitos), reemplazar
-                const shorterExistingIndex = enhancedDetections.findIndex(existing => 
-                  existing.bibNumber.length < ocrDet.bibNumber.length &&
-                  ocrDet.bibNumber.length >= 3 && // OCR tiene 3+ dígitos
-                  existing.bibNumber.length <= 2 // Existente tiene 2 o menos dígitos
-                );
-                
-                if (shorterExistingIndex >= 0) {
-                  // Reemplazar detección corta con detección larga del OCR
-                  const replaced = enhancedDetections[shorterExistingIndex];
-                  enhancedDetections[shorterExistingIndex] = ocrDet;
+                // Solo agregar si es un número de 4 dígitos con alta confianza
+                // Esto evita agregar falsos positivos
+                if (ocrDet.bibNumber.length === 4 && ocrDet.confidence >= 0.8) {
+                  enhancedDetections.push(ocrDet);
+                  addedCount++;
                   this.logger.log(
-                    `Reemplazando detección corta "${replaced.bibNumber}" (${replaced.bibNumber.length} dígitos) con "${ocrDet.bibNumber}" (${ocrDet.bibNumber.length} dígitos) del OCR completo`,
+                    `✅ Agregando detección del OCR completo: "${ocrDet.bibNumber}" (confianza: ${ocrDet.confidence.toFixed(2)})`,
                   );
-                } else {
-                  // 🔧 MEJORA: Si hay espacio, agregar nueva detección
-                  // Limitar a máximo 5 detecciones para evitar falsos positivos excesivos
-                  if (enhancedDetections.length < 5) {
-                    enhancedDetections.push(ocrDet);
-                  } else {
-                    // Si ya hay 5 detecciones, reemplazar la de menor confianza si esta es mejor
-                    const minConfidenceIndex = enhancedDetections.findIndex(
-                      (det, idx) => idx === enhancedDetections.reduce((minIdx, d, i) => 
-                        d.confidence < enhancedDetections[minIdx].confidence ? i : minIdx, 0
-                      )
-                    );
-                    if (minConfidenceIndex >= 0 && ocrDet.confidence > enhancedDetections[minConfidenceIndex].confidence) {
-                      const replaced = enhancedDetections[minConfidenceIndex];
-                      enhancedDetections[minConfidenceIndex] = ocrDet;
-                      this.logger.log(
-                        `Reemplazando detección de menor confianza "${replaced.bibNumber}" (${replaced.confidence.toFixed(2)}) con "${ocrDet.bibNumber}" (${ocrDet.confidence.toFixed(2)}) del OCR completo`,
-                      );
-                    }
-                  }
+                } else if (ocrDet.bibNumber.length === 3 && ocrDet.confidence >= 0.85) {
+                  // Para 3 dígitos, requerir confianza aún mayor
+                  enhancedDetections.push(ocrDet);
+                  addedCount++;
+                  this.logger.log(
+                    `✅ Agregando detección del OCR completo: "${ocrDet.bibNumber}" (confianza: ${ocrDet.confidence.toFixed(2)})`,
+                  );
                 }
               }
             }
@@ -752,7 +740,13 @@ export class BibDetectionService {
       this.logger.log('🔍 Usando Google Vision para escaneo completo de imagen...');
       
       // Usar Google Vision para extraer todos los números de dorsal
-      const visionNumbers = await this.bibOCRService['googleVisionService']?.extractAllBibNumbers(imageBuffer);
+      // Acceder al servicio a través del BibOCRService
+      const googleVisionService = (this.bibOCRService as any).googleVisionService;
+      if (!googleVisionService) {
+        return [];
+      }
+      
+      const visionNumbers = await googleVisionService.extractAllBibNumbers(imageBuffer);
       
       if (!visionNumbers || visionNumbers.length === 0) {
         return [];
