@@ -121,10 +121,11 @@ export class PhotosService {
       // Determine the URL to download from
       let downloadUrl = photoUrl;
 
-      // If photo has cloudinaryPublicId, use Cloudinary's original URL (without transformations)
+      // 🔧 MEJORA: Para OCR usar imagen completamente original sin transformaciones
+      // Las transformaciones (compresión, resize) pueden afectar la precisión del OCR
       if (photo.cloudinaryPublicId) {
-        downloadUrl = this.cloudinaryService.getOriginalUrl(photo.cloudinaryPublicId);
-        this.logger.log(`Using Cloudinary original URL for processing: ${downloadUrl}`);
+        downloadUrl = this.cloudinaryService.getTrulyOriginalUrl(photo.cloudinaryPublicId);
+        this.logger.log(`Using Cloudinary truly original URL for OCR processing: ${downloadUrl}`);
       } else {
         this.logger.log(`Using Supabase URL for processing: ${downloadUrl}`);
       }

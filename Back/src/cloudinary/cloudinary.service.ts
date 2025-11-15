@@ -174,6 +174,17 @@ export class CloudinaryService {
   }
 
   /**
+   * Get truly original URL without any transformations
+   * 🔧 MEJORA: Para OCR necesitamos la imagen completamente original sin compresión
+   */
+  getTrulyOriginalUrl(publicId: string): string {
+    return cloudinary.url(publicId, {
+      secure: true,
+      // Sin transformaciones - imagen original completa
+    });
+  }
+
+  /**
    * Get thumbnail URL
    */
   getThumbnailUrl(

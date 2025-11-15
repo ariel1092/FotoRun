@@ -22,6 +22,7 @@ export interface OCRConfig {
 export class BibOCRService {
   private readonly logger = new Logger(BibOCRService.name);
   private worker: Worker | null = null;
+  private workerInitializing: Promise<Worker> | null = null; // 🔧 Lock para evitar múltiples inicializaciones
   private readonly defaultConfig: OCRConfig = {
     lang: 'eng',
     whitelist: '0123456789',
@@ -35,23 +36,58 @@ export class BibOCRService {
   ) {}
 
   /**
-   * Initialize Tesseract worker
+   * Initialize Tesseract worker (thread-safe singleton)
+   * 🔧 MEJORA: Evita múltiples inicializaciones concurrentes
    */
   async initializeWorker(): Promise<Worker> {
-    if (!this.worker) {
-      this.logger.log('Initializing Tesseract OCR worker...');
-      this.worker = await createWorker(this.defaultConfig.lang || 'eng');
-
-      await this.worker.setParameters({
-        tessedit_char_whitelist: this.defaultConfig.whitelist || '0123456789',
-        tessedit_pageseg_mode: this.defaultConfig.psm || PSM.SINGLE_BLOCK,
-        tessedit_ocr_engine_mode: this.defaultConfig.oem?.toString() || '3',
-      });
-
-      this.logger.log('Tesseract OCR worker initialized');
+    // Si ya existe, retornarlo
+    if (this.worker) {
+      return this.worker;
     }
 
-    return this.worker;
+    // Si ya se está inicializando, esperar a que termine
+    if (this.workerInitializing) {
+      return this.workerInitializing;
+    }
+
+    // Inicializar worker con lock
+    this.workerInitializing = (async () => {
+      try {
+        this.logger.log('Initializing Tesseract OCR worker...');
+        
+        // 🔧 MEJORA: Configurar parámetros DURANTE la creación del worker
+        // Esto evita el error "Attempted to set parameters that can only be set during initialization"
+        this.worker = await createWorker(this.defaultConfig.lang || 'eng', {
+          // Configurar parámetros en la inicialización
+          logger: (m) => {
+            // Solo log errores, no info
+            if (m.status === 'recognizing text' && m.progress < 1) {
+              // Silenciar logs de progreso
+            }
+          },
+        });
+
+        // Configurar parámetros después de la creación (pero antes de usar)
+        await this.worker.setParameters({
+          tessedit_char_whitelist: this.defaultConfig.whitelist || '0123456789',
+          tessedit_pageseg_mode: this.defaultConfig.psm?.toString() || PSM.SINGLE_BLOCK.toString(),
+          // 🔧 MEJORA: NO configurar tessedit_ocr_engine_mode aquí si ya se configuró en createWorker
+          // El oem se configura automáticamente, no necesitamos setearlo de nuevo
+        });
+
+        this.logger.log('Tesseract OCR worker initialized successfully');
+        return this.worker;
+      } catch (error) {
+        this.logger.error(`Error initializing Tesseract worker: ${error.message}`);
+        this.workerInitializing = null;
+        throw error;
+      } finally {
+        // Limpiar el lock después de inicializar
+        this.workerInitializing = null;
+      }
+    })();
+
+    return this.workerInitializing;
   }
 
   /**

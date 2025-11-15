@@ -144,8 +144,9 @@ export default function PhotoDetailPage() {
     // Ejecutar inmediatamente la primera vez
     pollStatus()
 
-    // Luego ejecutar cada 2 segundos (más frecuente para mejor UX)
-    intervalIdRef.current = setInterval(pollStatus, 2000)
+    // 🔧 MEJORA: Reducir polling a 10 segundos para evitar carga excesiva
+    // El backend actualiza el estado inmediatamente, así que 10s es suficiente
+    intervalIdRef.current = setInterval(pollStatus, 10000)
 
     return () => {
       if (intervalIdRef.current) {
