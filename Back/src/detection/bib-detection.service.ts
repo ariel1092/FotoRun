@@ -1631,8 +1631,18 @@ export class BibDetectionService {
         return null;
       }
       
-      // Ordenar por score descendente
-      candidates.sort((a, b) => b.score - a.score);
+      // 🔧 MEJORA: Ordenar por score, pero priorizar números más largos en caso de empate
+      candidates.sort((a, b) => {
+        // Primero por score
+        if (Math.abs(b.score - a.score) > 0.1) {
+          return b.score - a.score;
+        }
+        // Si scores son similares (diferencia < 0.1), priorizar números más largos
+        if (a.bibNumber.length !== b.bibNumber.length) {
+          return b.bibNumber.length - a.bibNumber.length;
+        }
+        return b.score - a.score;
+      });
       const bestCandidate = candidates[0];
       
       // Si el mejor candidato es diferente del resultado OCR original, actualizar
