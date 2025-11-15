@@ -77,7 +77,7 @@ export class PhotosController {
     }
 
     // Upload photo to Supabase Storage
-    const photo = await this.photosService.uploadPhoto(
+    let photo = await this.photosService.uploadPhoto(
       file.buffer,
       file.originalname,
       file.mimetype,

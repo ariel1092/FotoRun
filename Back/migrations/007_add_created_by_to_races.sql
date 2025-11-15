@@ -11,3 +11,4 @@ CREATE INDEX IF NOT EXISTS idx_races_created_by ON races("createdBy");
 -- Comentario en la columna
 COMMENT ON COLUMN races."createdBy" IS 'ID del usuario (fotógrafo) que creó el evento';
 
+

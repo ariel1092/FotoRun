@@ -15,3 +15,4 @@ node scripts/apply-migrations.js
 echo "✅ Post-deploy completado"
 
 
+
