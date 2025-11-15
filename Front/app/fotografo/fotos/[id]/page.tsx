@@ -42,6 +42,7 @@ export default function PhotoDetailPage() {
   const [polling, setPolling] = useState(false)
   const [pollingStartTime, setPollingStartTime] = useState<number | null>(null)
   const pollingStartTimeRef = useRef<number | null>(null)
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
   const [showAnnotations, setShowAnnotations] = useState(true)
   const { toast } = useToast()
 
@@ -58,6 +59,12 @@ export default function PhotoDetailPage() {
     const currentStatus = photo.processingStatus || "pending"
     const shouldPoll = currentStatus === "processing" || currentStatus === "pending"
 
+    // 🔧 MEJORA: Limpiar intervalo anterior si existe
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current)
+      intervalIdRef.current = null
+    }
+
     if (!shouldPoll) {
       // Si no necesita polling, detenerlo
       setPolling(false)
@@ -73,8 +80,6 @@ export default function PhotoDetailPage() {
       pollingStartTimeRef.current = startTime
       setPollingStartTime(startTime)
     }
-
-    let intervalId: NodeJS.Timeout | null = null
 
     const pollStatus = async () => {
       try {
@@ -95,9 +100,9 @@ export default function PhotoDetailPage() {
           setPolling(false)
           pollingStartTimeRef.current = null
           setPollingStartTime(null)
-          if (intervalId) {
-            clearInterval(intervalId)
-            intervalId = null
+          if (intervalIdRef.current) {
+            clearInterval(intervalIdRef.current)
+            intervalIdRef.current = null
           }
           
           if (newStatus === "completed") {
@@ -121,9 +126,9 @@ export default function PhotoDetailPage() {
           setPolling(false)
           pollingStartTimeRef.current = null
           setPollingStartTime(null)
-          if (intervalId) {
-            clearInterval(intervalId)
-            intervalId = null
+          if (intervalIdRef.current) {
+            clearInterval(intervalIdRef.current)
+            intervalIdRef.current = null
           }
           toast({
             title: "Tiempo de espera agotado",
@@ -139,12 +144,13 @@ export default function PhotoDetailPage() {
     // Ejecutar inmediatamente la primera vez
     pollStatus()
 
-    // Luego ejecutar cada 3 segundos (más frecuente para mejor UX)
-    intervalId = setInterval(pollStatus, 3000)
+    // Luego ejecutar cada 2 segundos (más frecuente para mejor UX)
+    intervalIdRef.current = setInterval(pollStatus, 2000)
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId)
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null
       }
     }
   }, [photoId, photo?.processingStatus])
