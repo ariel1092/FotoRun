@@ -1,6 +1,6 @@
 import { Processor, Process } from '@nestjs/bull';
 import type { Job } from 'bull';
-import { Logger, Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Logger, Injectable, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { PhotosService } from '../../photos/photo.service';
 import { PHOTO_PROCESSING_QUEUE } from '../queue.constants';
 
@@ -11,15 +11,29 @@ export interface PhotoProcessingJobData {
 
 @Processor(PHOTO_PROCESSING_QUEUE)
 @Injectable()
-export class PhotoProcessor {
+export class PhotoProcessor implements OnModuleInit {
   private readonly logger = new Logger(PhotoProcessor.name);
 
   constructor(
     @Inject(forwardRef(() => PhotosService))
     private readonly photosService: PhotosService,
   ) {
-    this.logger.log('✅ PhotoProcessor initialized and ready to process jobs');
-    this.logger.log(`📸 Listening for jobs on queue: ${PHOTO_PROCESSING_QUEUE}`);
+    try {
+      this.logger.log('✅ PhotoProcessor initialized and ready to process jobs');
+      this.logger.log(`📸 Listening for jobs on queue: ${PHOTO_PROCESSING_QUEUE}`);
+      this.logger.log(`📸 PhotoProcessor constructor completed successfully`);
+    } catch (error) {
+      this.logger.error(`❌ Error initializing PhotoProcessor: ${error.message}`);
+      this.logger.error(error.stack);
+    }
+  }
+
+  /**
+   * Lifecycle hook - called when module is initialized
+   */
+  onModuleInit() {
+    this.logger.log('🔄 PhotoProcessor onModuleInit called');
+    this.logger.log(`📸 PhotoProcessor is ready to process jobs from queue: ${PHOTO_PROCESSING_QUEUE}`);
   }
 
   @Process({
