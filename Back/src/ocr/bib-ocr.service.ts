@@ -195,13 +195,44 @@ export class BibOCRService {
         } = await worker.recognize(enhancedRegion);
 
         // 🔧 MEJORA: Extraer TODOS los dígitos del texto, incluso si están separados
-        // Primero intentar extraer número completo
+        // Primero intentar extraer número completo (para números claros como "2107", "3222")
         let bibNumber = this.extractBibNumber(text);
+        
+        // 🔧 MEJORA: Para números claros, buscar patrones específicos de 4 dígitos directamente
+        // Ejemplo: "2107", "3222" - estos deberían detectarse fácilmente
+        if (!bibNumber && text) {
+          // Buscar números de 4 dígitos directamente en el texto (palabras completas)
+          const fourDigitMatch = text.match(/\b\d{4}\b/);
+          if (fourDigitMatch) {
+            const num = parseInt(fourDigitMatch[0], 10);
+            // Validar que no sea un año (2000-2099) pero sí un dorsal válido (1000-9999)
+            if ((num >= 1000 && num < 2000) || (num >= 2100 && num <= 9999)) {
+              bibNumber = fourDigitMatch[0];
+              this.logger.debug(
+                `Found 4-digit number directly: "${text}" -> "${bibNumber}"`,
+              );
+            }
+          }
+        }
         
         // Si no se encontró, intentar con texto limpio
         if (!bibNumber) {
           const cleanedText = this.cleanText(text);
           bibNumber = this.extractBibNumber(cleanedText);
+          
+          // También buscar números de 4 dígitos en texto limpio
+          if (!bibNumber && cleanedText) {
+            const fourDigitMatch = cleanedText.match(/\b\d{4}\b/);
+            if (fourDigitMatch) {
+              const num = parseInt(fourDigitMatch[0], 10);
+              if ((num >= 1000 && num < 2000) || (num >= 2100 && num <= 9999)) {
+                bibNumber = fourDigitMatch[0];
+                this.logger.debug(
+                  `Found 4-digit number in cleaned text: "${cleanedText}" -> "${bibNumber}"`,
+                );
+              }
+            }
+          }
         }
         
         // 🔧 NUEVO: Si aún no se encontró, intentar combinar TODOS los dígitos del texto
