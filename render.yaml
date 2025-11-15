@@ -1,0 +1,67 @@
+services:
+  # Backend NestJS API
+  - type: web
+    name: fotorun-backend
+    env: node
+    region: oregon
+    plan: starter
+    rootDir: Back  # ⚠️ IMPORTANTE: Especificar que el código está en Back/
+    buildCommand: npm install && npm run build && chmod +x scripts/post-deploy.sh && ./scripts/post-deploy.sh
+    startCommand: npm run start:prod
+    healthCheckPath: /api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8004
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fotorun-database
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: ROBOFLOW_API_KEY
+        sync: false
+      - key: ROBOFLOW_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: fotorun-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: fotorun-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: fotorun-redis
+          property: password
+      - key: REDIS_DB
+        value: 0
+      - key: GOOGLE_VISION_CREDENTIALS_PATH
+        sync: false
+
+databases:
+  # Base de datos PostgreSQL
+  - name: fotorun-database
+    databaseName: fotorun
+    user: fotorun_user
+    plan: starter
+    region: oregon
+
+  # Redis para procesamiento asíncrono
+  - name: fotorun-redis
+    type: redis
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+
