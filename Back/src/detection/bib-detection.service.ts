@@ -423,32 +423,33 @@ export class BibDetectionService {
           ocrResult.bibNumber.length <= 2 || // OCR es corto, puede necesitar desambiguación
           (bibNumber.length > ocrResult.bibNumber.length && bibNumber.length >= 3); // Roboflow es más largo y válido
         
-        if (shouldDisambiguate) {
-          const disambiguatedResult = await this.disambiguateWithContext(
-            ocrResult,
-            bibNumber,
-            detection,
-            imageBuffer,
-            expanded,
-          );
-          
-          if (disambiguatedResult) {
-            // 🔧 MEJORA: Solo usar resultado desambiguado si es mejor (más largo o mayor confianza)
-            // NO cambiar de 4 dígitos a 2 dígitos
-            if (disambiguatedResult.bibNumber.length >= ocrResult.bibNumber.length ||
-                (disambiguatedResult.bibNumber.length === ocrResult.bibNumber.length && 
-                 disambiguatedResult.confidence > ocrResult.confidence + 0.1)) {
-              ocrResult = disambiguatedResult;
-            } else {
-              this.logger.log(
-                `Desambiguación multimodal rechazada: manteniendo "${ocrResult.bibNumber}" (${ocrResult.bibNumber.length} dígitos) sobre "${disambiguatedResult.bibNumber}" (${disambiguatedResult.bibNumber.length} dígitos)`,
-              );
+          if (shouldDisambiguate && ocrResult) {
+            const disambiguatedResult = await this.disambiguateWithContext(
+              ocrResult,
+              bibNumber,
+              detection,
+              imageBuffer,
+              expanded,
+            );
+            
+            if (disambiguatedResult) {
+              // 🔧 MEJORA: Solo usar resultado desambiguado si es mejor (más largo o mayor confianza)
+              // NO cambiar de 4 dígitos a 2 dígitos
+              if (disambiguatedResult.bibNumber.length >= ocrResult.bibNumber.length ||
+                  (disambiguatedResult.bibNumber.length === ocrResult.bibNumber.length && 
+                   disambiguatedResult.confidence > ocrResult.confidence + 0.1)) {
+                ocrResult = disambiguatedResult;
+              } else {
+                this.logger.log(
+                  `Desambiguación multimodal rechazada: manteniendo "${ocrResult.bibNumber}" (${ocrResult.bibNumber.length} dígitos) sobre "${disambiguatedResult.bibNumber}" (${disambiguatedResult.bibNumber.length} dígitos)`,
+                );
+              }
             }
+          } else if (ocrResult) {
+            this.logger.log(
+              `Desambiguación multimodal omitida: OCR tiene ${ocrResult.bibNumber.length} dígitos, Roboflow tiene ${bibNumber.length} dígitos`,
+            );
           }
-        } else {
-          this.logger.log(
-            `Desambiguación multimodal omitida: OCR tiene ${ocrResult.bibNumber.length} dígitos, Roboflow tiene ${bibNumber.length} dígitos`,
-          );
         }
         
         // If Roboflow didn't give us a valid bib number, always use OCR
