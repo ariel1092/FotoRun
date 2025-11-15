@@ -191,6 +191,10 @@ export class PhotosController {
           this.photosService.updateProcessingStatus(photo.id, 'processing'),
         ),
       );
+      // Reload photos to get updated status
+      uploadedPhotos = await Promise.all(
+        uploadedPhotos.map((photo) => this.photosService.findOne(photo.id)),
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to add photos to queue: ${error.message}. Processing directly...`,
@@ -202,10 +206,14 @@ export class PhotosController {
           this.photosService.updateProcessingStatus(photo.id, 'processing'),
         ),
       );
+      // Reload photos to get updated status
+      uploadedPhotos = await Promise.all(
+        uploadedPhotos.map((photo) => this.photosService.findOne(photo.id)),
+      );
       // Process in background without blocking the response
       uploadedPhotos.forEach((photo) => {
         this.photosService
-          .processPhoto(photo.id, photo.url)
+          .processPhoto(photo.id, photo.url, true) // Skip status update since we already did it
           .catch((processError) => {
             this.logger.error(
               `Error processing photo ${photo.id} directly: ${processError.message}`,
