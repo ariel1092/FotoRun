@@ -91,11 +91,16 @@ export class PhotosController {
     try {
       await this.getQueueService().addPhotoProcessingJob(photo.id, photo.url);
       this.logger.log(`Photo ${photo.id} added to processing queue`);
+      // Update status to processing immediately when added to queue
+      // The worker will handle the actual processing
+      await this.photosService.updateProcessingStatus(photo.id, 'processing');
     } catch (error) {
       this.logger.warn(
         `Failed to add photo ${photo.id} to queue: ${error.message}. Processing directly...`,
       );
       // Fallback: process photo directly if queue is not available
+      // Update status to processing FIRST so user sees it immediately
+      await this.photosService.updateProcessingStatus(photo.id, 'processing');
       // Process in background without blocking the response
       this.photosService
         .processPhoto(photo.id, photo.url)
@@ -176,11 +181,23 @@ export class PhotosController {
       this.logger.log(
         `${uploadedPhotos.length} photos added to processing queue`,
       );
+      // Update status to processing immediately for all photos
+      await Promise.all(
+        uploadedPhotos.map((photo) =>
+          this.photosService.updateProcessingStatus(photo.id, 'processing'),
+        ),
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to add photos to queue: ${error.message}. Processing directly...`,
       );
       // Fallback: process photos directly if queue is not available
+      // Update status to processing FIRST so user sees it immediately
+      await Promise.all(
+        uploadedPhotos.map((photo) =>
+          this.photosService.updateProcessingStatus(photo.id, 'processing'),
+        ),
+      );
       // Process in background without blocking the response
       uploadedPhotos.forEach((photo) => {
         this.photosService
