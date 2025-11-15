@@ -122,22 +122,21 @@ export class BibDetectionService {
         (det.confidence < 0.6 && det.ocrConfidence < 0.6)
       );
       
-      // 🔧 MEJORA: Priorizar detecciones de Roboflow y ser más estricto con OCR completo
-      // Solo hacer escaneo completo si realmente no hay buenas detecciones
+      // 🔧 CRÍTICO: Priorizar SOLO las regiones detectadas por Roboflow
+      // NO hacer escaneo completo de OCR si Roboflow detectó algo - esto genera falsos positivos
+      // El problema: el OCR completo escanea toda la imagen y encuentra números que no son dorsales
+      // Solución: solo usar OCR en las regiones específicas donde Roboflow detectó algo
       const hasGoodRoboflowDetection = enhancedDetections.some(det => 
         det.bibNumber.length >= 3 && 
         det.confidence >= 0.5 && 
         this.isValidBibNumber(det.bibNumber)
       );
       
-      // Trigger comprehensive scan ONLY if:
-      // 1. No detections found at all
-      // 2. All detections are short/invalid AND no good Roboflow detection
-      // 3. No good Roboflow detection found
-      const shouldScanComprehensively = 
-        enhancedDetections.length === 0 || 
-        (allDetectionsAreShortOrInvalid && !hasGoodRoboflowDetection) ||
-        (!hasGoodRoboflowDetection && enhancedDetections.length < 2);
+      // 🔧 CAMBIO CRÍTICO: SOLO hacer escaneo completo si:
+      // 1. NO hay NINGUNA detección de Roboflow (0 detecciones)
+      // Esto evita falsos positivos del OCR completo cuando Roboflow ya detectó algo
+      // Ejemplo: Roboflow detecta 2 dorsales → NO hacer OCR completo → evita detectar 5 números falsos
+      const shouldScanComprehensively = enhancedDetections.length === 0;
       
       if (shouldScanComprehensively && opts.useOCR) {
         const reason = enhancedDetections.length === 0 
