@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -39,32 +39,109 @@ export default function PhotoDetailPage() {
   const [status, setStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [polling, setPolling] = useState(false)
+  const [pollingStartTime, setPollingStartTime] = useState<number | null>(null)
+  const pollingStartTimeRef = useRef<number | null>(null)
   const [showAnnotations, setShowAnnotations] = useState(true)
   const { toast } = useToast()
 
+  // Timeout máximo: 10 minutos (600,000 ms)
+  const MAX_POLLING_TIME = 10 * 60 * 1000
+
   useEffect(() => {
     fetchPhoto()
-    fetchStatus()
+  }, [photoId])
 
-    // Poll for status if processing
-    if (status?.status === "processing" || status?.status === "pending") {
-      setPolling(true)
-      const interval = setInterval(() => {
-        fetchStatus()
-      }, 5000) // Every 5 seconds
+  useEffect(() => {
+    if (!photo) return
 
-      return () => {
-        clearInterval(interval)
-        setPolling(false)
-      }
+    const currentStatus = photo.processingStatus || "pending"
+    const shouldPoll = currentStatus === "processing" || currentStatus === "pending"
+
+    if (!shouldPoll) {
+      // Si no necesita polling, detenerlo
+      setPolling(false)
+      pollingStartTimeRef.current = null
+      setPollingStartTime(null)
+      return
     }
-  }, [photoId, status?.status])
+
+    // Iniciar polling
+    setPolling(true)
+    if (!pollingStartTimeRef.current) {
+      const startTime = Date.now()
+      pollingStartTimeRef.current = startTime
+      setPollingStartTime(startTime)
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const data = await photosApi.getById(photoId)
+        const newStatus = data.processingStatus || "pending"
+        
+        setPhoto(data)
+        setStatus({
+          status: newStatus,
+          isProcessed: data.isProcessed,
+          processedAt: data.processedAt,
+          error: data.processingError,
+        })
+
+        // Si cambió a completed o failed, detener polling
+        if (newStatus === "completed" || newStatus === "failed") {
+          setPolling(false)
+          pollingStartTimeRef.current = null
+          setPollingStartTime(null)
+          clearInterval(interval)
+          
+          if (newStatus === "completed") {
+            toast({
+              title: "Procesamiento completado",
+              description: "La foto se procesó exitosamente",
+            })
+          } else if (newStatus === "failed") {
+            toast({
+              title: "Error en el procesamiento",
+              description: data.processingError || "No se pudo procesar la foto",
+              variant: "destructive",
+            })
+          }
+          return
+        }
+
+        // Verificar timeout máximo
+        const startTime = pollingStartTimeRef.current || Date.now()
+        if (Date.now() - startTime > MAX_POLLING_TIME) {
+          setPolling(false)
+          pollingStartTimeRef.current = null
+          setPollingStartTime(null)
+          clearInterval(interval)
+          toast({
+            title: "Tiempo de espera agotado",
+            description: "El procesamiento está tardando más de lo esperado. Por favor, recargá la página o contactá soporte.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching status:", error)
+      }
+    }, 5000) // Every 5 seconds
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [photoId, photo?.processingStatus])
 
   const fetchPhoto = async () => {
     try {
       setLoading(true)
       const data = await photosApi.getById(photoId)
       setPhoto(data)
+      setStatus({
+        status: data.processingStatus || "pending",
+        isProcessed: data.isProcessed,
+        processedAt: data.processedAt,
+        error: data.processingError,
+      })
     } catch (error: any) {
       console.error("Error fetching photo:", error)
       toast({
@@ -77,20 +154,36 @@ export default function PhotoDetailPage() {
     }
   }
 
-  const fetchStatus = async () => {
+  const handleManualRefresh = async () => {
     try {
       const data = await photosApi.getById(photoId)
-      const statusData = await photosApi.getById(photoId)
-      // Assuming we have a status endpoint
+      setPhoto(data)
       setStatus({
         status: data.processingStatus || "pending",
         isProcessed: data.isProcessed,
         processedAt: data.processedAt,
         error: data.processingError,
       })
-      setPhoto(data)
+      
+      if (data.processingStatus === "pending" || data.processingStatus === "processing") {
+        if (!pollingStartTimeRef.current) {
+          const startTime = Date.now()
+          pollingStartTimeRef.current = startTime
+          setPollingStartTime(startTime)
+        }
+        setPolling(true)
+      } else {
+        setPolling(false)
+        pollingStartTimeRef.current = null
+        setPollingStartTime(null)
+      }
     } catch (error) {
-      console.error("Error fetching status:", error)
+      console.error("Error refreshing status:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado",
+        variant: "destructive",
+      })
     }
   }
 
@@ -265,10 +358,36 @@ export default function PhotoDetailPage() {
           )}
 
           {polling && (
-            <Card className="p-4 border-blue-200 bg-blue-50">
-              <div className="flex items-center gap-2 text-blue-700">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <p className="text-sm">Verificando estado...</p>
+            <Card className="p-4 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <p className="text-sm font-medium">Verificando estado...</p>
+                </div>
+                {pollingStartTime && (
+                  <div className="text-xs text-blue-600 dark:text-blue-400">
+                    <p>Tiempo transcurrido: {Math.floor((Date.now() - pollingStartTime) / 1000)}s</p>
+                    {Date.now() - pollingStartTime > MAX_POLLING_TIME / 2 && (
+                      <p className="mt-1 text-orange-600 dark:text-orange-400 font-medium">
+                        ⚠️ El procesamiento está tardando más de lo normal
+                      </p>
+                    )}
+                    {Date.now() - pollingStartTime > MAX_POLLING_TIME * 0.8 && (
+                      <p className="mt-1 text-red-600 dark:text-red-400 font-medium">
+                        ⚠️ Si el procesamiento no termina pronto, puede haber un problema. Contactá soporte.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  className="w-full"
+                >
+                  <RefreshCw className="h-3 w-3 mr-2" />
+                  Actualizar ahora
+                </Button>
               </div>
             </Card>
           )}

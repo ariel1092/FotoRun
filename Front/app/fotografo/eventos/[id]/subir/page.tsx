@@ -108,8 +108,23 @@ export default function UploadPhotosPage() {
                     <p className="text-muted-foreground">
                       Las fotos están siendo procesadas. La IA detectará los números de dorsal automáticamente.
                     </p>
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-sm text-blue-900 dark:text-blue-100">
+                        <strong>⏱️ Tiempo estimado:</strong> El procesamiento suele tardar entre 30 segundos y 2 minutos por foto.
+                      </p>
+                      <p className="text-sm text-blue-800 dark:text-blue-200 mt-2">
+                        Podés ver el estado de las fotos en el dashboard o en la página del evento.
+                      </p>
+                    </div>
                   </div>
-                  <Button onClick={() => router.push("/fotografo/dashboard")}>Volver al Panel</Button>
+                  <div className="flex gap-3 justify-center">
+                    <Button variant="outline" onClick={() => router.push(`/fotografo/eventos/${raceId}`)}>
+                      Ver Evento
+                    </Button>
+                    <Button onClick={() => router.push("/fotografo/dashboard")}>
+                      Volver al Panel
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
