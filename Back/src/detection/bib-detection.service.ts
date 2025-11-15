@@ -1262,6 +1262,20 @@ export class BibDetectionService {
   }
 
   /**
+   * Verifica si una región está en la zona del torso (donde están los dorsales)
+   * 🔧 MEJORA: Filtrado inteligente basado en posición vertical
+   * Los dorsales suelen estar entre 20% y 65% de la altura de la imagen
+   * Esto elimina falsos positivos en cielo, suelo, o extremidades
+   */
+  private isInTorsoRegion(y: number, height: number, imageHeight: number): boolean {
+    const centerY = y + height / 2;
+    const relativeY = centerY / imageHeight;
+    
+    // Los dorsales suelen estar entre 20% y 65% de la altura de la imagen
+    return relativeY >= 0.2 && relativeY <= 0.65;
+  }
+
+  /**
    * 🔍 Refinar bounding box con análisis geométrico avanzado
    * Aplica expansión adaptativa basada en aspect ratio y características del dorsal
    */
