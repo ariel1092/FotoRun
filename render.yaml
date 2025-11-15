@@ -71,6 +71,13 @@ services:
       - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
         sync: false  # Opcional - solo si usas Cloudinary
 
+  # Redis para procesamiento asíncrono
+  - type: redis
+    name: fotorun-redis
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+
 databases:
   # Base de datos PostgreSQL
   - name: fotorun-database
@@ -78,11 +85,4 @@ databases:
     user: fotorun_user
     plan: starter
     region: oregon
-
-  # Redis para procesamiento asíncrono
-  - name: fotorun-redis
-    type: redis
-    plan: starter
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
 
