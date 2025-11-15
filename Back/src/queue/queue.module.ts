@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef, Logger } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { QueueService } from './queue.service';
@@ -11,20 +11,44 @@ import { PHOTO_PROCESSING_QUEUE } from './queue.constants';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>('REDIS_HOST', 'localhost'),
-          port: configService.get<number>('REDIS_PORT', 6379),
-          password: configService.get<string>('REDIS_PASSWORD'),
-          db: configService.get<number>('REDIS_DB', 0),
-        },
-        defaultJobOptions: {
-          removeOnComplete: 100,
-          removeOnFail: 500,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 2000 },
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const logger = new Logger('Redis');
+        const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
+        const redisPort = configService.get<number>('REDIS_PORT', 6379);
+        const redisPassword = configService.get<string>('REDIS_PASSWORD');
+        const redisDb = configService.get<number>('REDIS_DB', 0);
+
+        // Log Redis configuration
+        logger.log(`🔴 Redis Config - Host: ${redisHost}`);
+        logger.log(`🔴 Redis Config - Port: ${redisPort}`);
+        logger.log(`🔴 Redis Config - DB: ${redisDb}`);
+        logger.log(`🔴 Redis Config - Password: ${redisPassword ? '***' : 'No configurado'}`);
+
+        return {
+          redis: {
+            host: redisHost,
+            port: redisPort,
+            password: redisPassword,
+            db: redisDb,
+            retryStrategy: (times: number) => {
+              if (times > 10) {
+                logger.error('❌ Redis: Máximo de reintentos alcanzado. Verifica la configuración.');
+                return null;
+              }
+              const delay = Math.min(times * 200, 2000);
+              logger.warn(`⚠️  Redis: Reintentando conexión (intento ${times}) en ${delay}ms...`);
+              return delay;
+            },
+            maxRetriesPerRequest: 3,
+          },
+          defaultJobOptions: {
+            removeOnComplete: 100,
+            removeOnFail: 500,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 2000 },
+          },
+        };
+      },
     }),
     BullModule.registerQueue({
       name: PHOTO_PROCESSING_QUEUE,

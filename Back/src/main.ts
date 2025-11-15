@@ -129,6 +129,12 @@ async function bootstrap() {
 
   console.log(`🚀 Server running on http://localhost:${port}`);
   console.log(`📚 Swagger docs available at http://localhost:${port}/api`);
+  
+  // Log Redis status
+  const redisHost = process.env.REDIS_HOST || 'localhost';
+  const redisPort = process.env.REDIS_PORT || 6379;
+  console.log(`🔴 Redis: ${redisHost}:${redisPort} (${process.env.REDIS_PASSWORD ? 'con password' : 'sin password'})`);
+  console.log(`📸 Bull Queue: Configurado para procesamiento asíncrono de fotos`);
 }
 
 bootstrap().catch((err) => {
