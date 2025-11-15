@@ -20,7 +20,10 @@ ROBOFLOW_API_KEY=tu_roboflow_api_key_aqui
 ROBOFLOW_URL=https://serverless.roboflow.com/tu-modelo/version
 
 # CORS (URLs de tu frontend separadas por comas)
-CORS_ORIGIN=https://tu-frontend.onrender.com,https://tu-dominio.com
+# IMPORTANTE: Incluye todas las URLs donde esté desplegado tu frontend
+# Ejemplo con Vercel:
+CORS_ORIGIN=https://foto-run.vercel.app,https://tu-dominio.com
+# Si tienes múltiples URLs, sepáralas con comas (sin espacios)
 
 # Redis (usa Internal Redis URL de Render)
 REDIS_HOST=red-xxxxx.render.com

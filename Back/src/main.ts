@@ -61,11 +61,9 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        // Loguear el origen rechazado
-        if (isDevelopment) {
-          console.log(`⚠️  CORS: Origen rechazado: ${origin}`);
-          console.log(`   Orígenes permitidos: ${allowedOrigins.join(', ')}`);
-        }
+        // Loguear el origen rechazado (también en producción para debugging)
+        console.log(`⚠️  CORS: Origen rechazado: ${origin}`);
+        console.log(`   Orígenes permitidos: ${allowedOrigins.join(', ')}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
