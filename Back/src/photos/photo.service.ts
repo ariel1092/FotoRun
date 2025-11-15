@@ -236,7 +236,8 @@ export class PhotosService {
         this.logger.log(`✅ All ${enhancedDetections.length} detections saved for photo ${photoId}`);
       }
 
-      this.logger.log(`Photo ${photoId} processed successfully`);
+      // Las detecciones se están guardando en segundo plano
+      this.logger.log(`Photo ${photoId} processed successfully - status already set to completed`);
     } catch (error) {
       this.logger.error(`Error processing photo ${photoId}: ${error.message}`);
       
@@ -289,6 +290,56 @@ export class PhotosService {
   /**
    * Update photo processing status
    */
+  /**
+   * 🔧 NUEVO: Guardar detecciones de forma asíncrona sin bloquear
+   * Esto permite que el estado cambie a "completed" inmediatamente
+   */
+  private async saveDetectionsAsync(
+    photoId: string,
+    photoDbId: string,
+    enhancedDetections: any[],
+  ): Promise<void> {
+    try {
+      const detectionPromises = enhancedDetections.map(async (enhanced) => {
+        try {
+          const detection = this.detectionRepository.create({
+            photoId: photoDbId,
+            bibNumber: enhanced.bibNumber,
+            confidence: enhanced.confidence,
+            detectionConfidence: enhanced.detectionConfidence,
+            ocrConfidence: enhanced.ocrConfidence,
+            detectionMethod: enhanced.metadata.method,
+            x: enhanced.x,
+            y: enhanced.y,
+            width: enhanced.width,
+            height: enhanced.height,
+            metadata: {
+              class_id: enhanced.metadata.class_id,
+              detection_id: enhanced.metadata.detection_id,
+              method: enhanced.metadata.method,
+            },
+            ocrMetadata: enhanced.ocrResult
+              ? {
+                  rawText: enhanced.ocrResult.rawText,
+                  alternatives: enhanced.ocrResult.alternatives || [],
+                }
+              : undefined,
+          });
+
+          await this.detectionRepository.save(detection);
+        } catch (error) {
+          this.logger.error(`Error saving detection for photo ${photoId}: ${error.message}`);
+        }
+      });
+
+      // Guardar todas las detecciones en paralelo
+      await Promise.all(detectionPromises);
+      this.logger.log(`✅ All ${enhancedDetections.length} detections saved for photo ${photoId}`);
+    } catch (error) {
+      this.logger.error(`Error in saveDetectionsAsync for photo ${photoId}: ${error.message}`);
+    }
+  }
+
   async updateProcessingStatus(
     photoId: string,
     status: 'pending' | 'processing' | 'completed' | 'failed',
