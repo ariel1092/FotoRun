@@ -1,0 +1,22 @@
+services:
+  # Frontend Next.js
+  - type: web
+    name: fotorun-frontend
+    env: node
+    region: oregon
+    plan: starter  # o 'free' para pruebas
+    rootDir: Front  # ⚠️ IMPORTANTE: Especificar que el código está en Front/
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false  # Debes configurarlo manualmente con la URL de tu backend
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false  # Opcional - solo si implementas pagos
+      - key: NEXT_PUBLIC_JERPRO_PAYMENT_LINK
+        sync: false  # Opcional - solo si usas link externo
+      - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+        sync: false  # Opcional - solo si usas Cloudinary
+
