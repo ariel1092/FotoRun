@@ -819,15 +819,39 @@ export class BibOCRService {
       numbers.add(seq);
     });
     
-    // Segundo, encontrar todos los números de 4 dígitos (como "1523")
+    // Segundo, encontrar todos los números de 4 dígitos (como "1523", "2107", "3222")
     const fourDigitSequences = text.match(/\d{4}/g) || [];
     fourDigitSequences.forEach(seq => {
       const num = parseInt(seq, 10);
-      // Filtrar años pero mantener otros números de 4 dígitos
+      // 🔧 MEJORA: Filtrar años (2000-2099) pero mantener otros números de 4 dígitos
+      // Números como 2107, 3222 son válidos (no son años)
       if (!(num >= 2000 && num < 2100)) {
         numbers.add(seq);
       }
     });
+    
+    // 🔧 MEJORA: También buscar números de 4 dígitos que pueden estar separados por espacios
+    // Ejemplo: "2 1 0 7" o "21 07" deberían detectarse como "2107"
+    const spacedFourDigitPatterns = [
+      /(\d)\s+(\d)\s+(\d)\s+(\d)/g,  // "2 1 0 7"
+      /(\d{2})\s+(\d{2})/g,          // "21 07"
+      /(\d)\s+(\d{3})/g,             // "2 107"
+      /(\d{3})\s+(\d)/g,             // "210 7"
+    ];
+    
+    for (const pattern of spacedFourDigitPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const combined = match.slice(1).filter(m => m).join('');
+        if (combined.length === 4) {
+          const num = parseInt(combined, 10);
+          // Solo agregar si no es un año
+          if (!(num >= 2000 && num < 2100)) {
+            numbers.add(combined);
+          }
+        }
+      }
+    }
     
     // Tercero, intentar combinar dígitos adyacentes (para casos donde OCR lee "1 5 2 3" separadamente)
     const combinedPatterns = [

@@ -183,7 +183,7 @@ export class BibDetectionService {
               return ocrDet.confidence > 0.5;
             });
             
-            // 🔧 MEJORA: Merge inteligente que prioriza números más largos
+            // 🔧 MEJORA: Merge inteligente que prioriza números más largos y números en rangos comunes
             for (const ocrDet of validOCRDetections) {
               // Check if we already have this exact bib number
               const existingIndex = enhancedDetections.findIndex(existing => 
@@ -200,7 +200,7 @@ export class BibDetectionService {
                 }
               } else {
                 // 🔧 MEJORA: Si el OCR completo encontró un número más largo, reemplazar números cortos existentes
-                // Por ejemplo, si OCR encuentra "1523" (4 dígitos) y existe "12" (2 dígitos), reemplazar
+                // Por ejemplo, si OCR encuentra "2107" (4 dígitos) y existe "12" (2 dígitos), reemplazar
                 const shorterExistingIndex = enhancedDetections.findIndex(existing => 
                   existing.bibNumber.length < ocrDet.bibNumber.length &&
                   ocrDet.bibNumber.length >= 3 && // OCR tiene 3+ dígitos
@@ -215,8 +215,25 @@ export class BibDetectionService {
                     `Reemplazando detección corta "${replaced.bibNumber}" (${replaced.bibNumber.length} dígitos) con "${ocrDet.bibNumber}" (${ocrDet.bibNumber.length} dígitos) del OCR completo`,
                   );
                 } else {
-                  // Agregar nueva detección
-                  enhancedDetections.push(ocrDet);
+                  // 🔧 MEJORA: Si hay espacio, agregar nueva detección
+                  // Limitar a máximo 5 detecciones para evitar falsos positivos excesivos
+                  if (enhancedDetections.length < 5) {
+                    enhancedDetections.push(ocrDet);
+                  } else {
+                    // Si ya hay 5 detecciones, reemplazar la de menor confianza si esta es mejor
+                    const minConfidenceIndex = enhancedDetections.findIndex(
+                      (det, idx) => idx === enhancedDetections.reduce((minIdx, d, i) => 
+                        d.confidence < enhancedDetections[minIdx].confidence ? i : minIdx, 0
+                      )
+                    );
+                    if (minConfidenceIndex >= 0 && ocrDet.confidence > enhancedDetections[minConfidenceIndex].confidence) {
+                      const replaced = enhancedDetections[minConfidenceIndex];
+                      enhancedDetections[minConfidenceIndex] = ocrDet;
+                      this.logger.log(
+                        `Reemplazando detección de menor confianza "${replaced.bibNumber}" (${replaced.confidence.toFixed(2)}) con "${ocrDet.bibNumber}" (${ocrDet.confidence.toFixed(2)}) del OCR completo`,
+                      );
+                    }
+                  }
                 }
               }
             }
@@ -742,25 +759,43 @@ export class BibDetectionService {
         
         // 🔧 MEJORA: Priorizar números de 3-4 dígitos sobre otros
         // Los dorsales típicamente tienen 3-4 dígitos, raramente 2 o 5
+        // También priorizar números que están en rangos comunes de dorsales (1000-9999 para 4 dígitos)
         const prioritizedNumbers = filteredNumbers.sort((a, b) => {
           // Preferir 4 dígitos (más comunes en carreras grandes)
           if (a.length === 4 && b.length !== 4) return -1;
           if (b.length === 4 && a.length !== 4) return 1;
+          
+          // Si ambos son de 4 dígitos, priorizar rangos comunes (1000-9999)
+          if (a.length === 4 && b.length === 4) {
+            const numA = parseInt(a, 10);
+            const numB = parseInt(b, 10);
+            // Priorizar números en rango común de dorsales (1000-9999)
+            const aInRange = numA >= 1000 && numA <= 9999;
+            const bInRange = numB >= 1000 && numB <= 9999;
+            if (aInRange && !bInRange) return -1;
+            if (!aInRange && bInRange) return 1;
+            // Si ambos están en rango, mantener orden original (aparecen primero en el texto)
+          }
+          
           // Luego 3 dígitos
           if (a.length === 3 && b.length !== 3) return -1;
           if (b.length === 3 && a.length !== 3) return 1;
+          
           // Evitar números de 2 dígitos si hay mejores opciones
           if (a.length === 2 && b.length >= 3) return 1;
           if (b.length === 2 && a.length >= 3) return -1;
+          
           // Evitar números de 5 dígitos si hay mejores opciones
           if (a.length === 5 && b.length <= 4) return 1;
           if (b.length === 5 && a.length <= 4) return -1;
+          
           // Finalmente por longitud
           return a.length - b.length;
         });
         
-        // Limitar a máximo 3 números para evitar falsos positivos
-        const limitedNumbers = prioritizedNumbers.slice(0, 3);
+        // 🔧 MEJORA: Aumentar límite a 5 números para capturar más dorsales en fotos con múltiples corredores
+        // Luego se filtrarán por proximidad a detecciones de Roboflow
+        const limitedNumbers = prioritizedNumbers.slice(0, 5);
         
         // For each number found, create a detection
         for (const bibNumber of limitedNumbers) {
