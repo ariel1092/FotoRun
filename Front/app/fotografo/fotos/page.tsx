@@ -164,15 +164,15 @@ export default function PhotosPage() {
   }
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="container py-6 sm:py-8 space-y-4 sm:space-y-6 px-4 sm:px-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Mis Fotos</h1>
-        <p className="text-muted-foreground">Gestioná todas tus fotos subidas</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Mis Fotos</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Gestioná todas tus fotos subidas</p>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Total</p>
           <p className="text-2xl font-bold">{stats.total}</p>
@@ -196,18 +196,18 @@ export default function PhotosPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre de archivo o número de dorsal..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px] h-12 sm:h-10 text-base sm:text-sm min-h-[48px]">
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Filtrar por estado" />
           </SelectTrigger>
@@ -223,7 +223,7 @@ export default function PhotosPage() {
 
       {/* Photos Grid */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <Card key={i} className="p-4 animate-pulse">
               <div className="aspect-square bg-muted rounded" />
@@ -231,11 +231,11 @@ export default function PhotosPage() {
           ))}
         </div>
       ) : filteredPhotos.length === 0 ? (
-        <Card className="p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+        <Card className="p-8 sm:p-12 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-muted">
+            <ImageIcon className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
           </div>
-          <h3 className="mb-2 text-lg font-semibold">No se encontraron fotos</h3>
+          <h3 className="mb-2 text-base sm:text-lg font-semibold">No se encontraron fotos</h3>
           <p className="text-sm text-muted-foreground">
             {searchQuery || statusFilter !== "all"
               ? "Intenta con otros filtros"
@@ -243,7 +243,7 @@ export default function PhotosPage() {
           </p>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredPhotos.map((photo) => (
             <Card key={photo.id} className="overflow-hidden hover:shadow-lg transition-shadow group">
               <div className="aspect-square relative bg-muted">
@@ -252,16 +252,33 @@ export default function PhotosPage() {
                   alt={photo.originalName}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" asChild>
-                      <Link href={`/fotografo/fotos/${photo.id}`}>
-                        <Eye className="h-4 w-4" />
+                {/* Overlay con botones - siempre visible en móvil, hover en desktop */}
+                <div className="absolute inset-0 bg-black/40 sm:bg-black/0 sm:group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                  <div className="flex gap-2 sm:gap-2">
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      asChild
+                      className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                    >
+                      <Link href={`/fotografo/fotos/${photo.id}`} aria-label="Ver detalles">
+                        <Eye className="h-5 w-5 sm:h-4 sm:w-4" />
                       </Link>
                     </Button>
-                    <Button variant="secondary" size="sm" asChild>
-                      <a href={photo.url} download target="_blank" rel="noopener noreferrer">
-                        <Download className="h-4 w-4" />
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      asChild
+                      className="min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                    >
+                      <a 
+                        href={photo.url} 
+                        download 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        aria-label="Descargar foto"
+                      >
+                        <Download className="h-5 w-5 sm:h-4 sm:w-4" />
                       </a>
                     </Button>
                     <AlertDialog>
@@ -270,9 +287,10 @@ export default function PhotosPage() {
                           variant="secondary"
                           size="sm"
                           disabled={deletingPhotoId === photo.id}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
+                          aria-label="Eliminar foto"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -295,12 +313,12 @@ export default function PhotosPage() {
                     </AlertDialog>
                   </div>
                 </div>
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-2 right-2 z-10">
                   {getStatusBadge(photo.processingStatus || "pending")}
                 </div>
               </div>
-              <div className="p-3 space-y-2">
-                <p className="text-xs text-muted-foreground truncate">
+              <div className="p-3 sm:p-3 space-y-2">
+                <p className="text-xs sm:text-xs text-muted-foreground truncate">
                   {photo.originalName}
                 </p>
                 <div className="flex items-center justify-between text-xs">
@@ -310,7 +328,7 @@ export default function PhotosPage() {
                   {photo.race && (
                     <Link
                       href={`/fotografo/eventos/${photo.race.id}`}
-                      className="text-primary hover:underline"
+                      className="text-primary hover:underline min-h-[44px] flex items-center"
                     >
                       {photo.race.name}
                     </Link>
