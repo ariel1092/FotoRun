@@ -118,16 +118,19 @@ export class PhotosService {
         throw new NotFoundException(`Photo with ID ${photoId} not found`);
       }
 
-      // Determine the URL to download from
-      let downloadUrl = photoUrl;
-
-      // 🔧 MEJORA: Para OCR usar imagen completamente original sin transformaciones
-      // Las transformaciones (compresión, resize) pueden afectar la precisión del OCR
+      // 🔧 MEJORA CRÍTICA: Procesar ANTES de aplicar watermark
+      // El watermark puede interferir con el OCR y la detección de dorsales
+      // Siempre usar la imagen original sin transformaciones para procesamiento
+      let downloadUrl: string;
+      
       if (photo.cloudinaryPublicId) {
+        // Usar imagen completamente original sin watermark ni transformaciones
         downloadUrl = this.cloudinaryService.getTrulyOriginalUrl(photo.cloudinaryPublicId);
-        this.logger.log(`Using Cloudinary truly original URL for OCR processing: ${downloadUrl}`);
+        this.logger.log(`✅ Using Cloudinary truly original URL (NO watermark) for OCR processing: ${downloadUrl}`);
       } else {
-        this.logger.log(`Using Supabase URL for processing: ${downloadUrl}`);
+        // Fallback: usar la URL proporcionada (pero debería tener cloudinaryPublicId)
+        downloadUrl = photoUrl;
+        this.logger.warn(`⚠️ Photo ${photoId} doesn't have cloudinaryPublicId, using provided URL (may have watermark): ${downloadUrl}`);
       }
 
       // Download image
