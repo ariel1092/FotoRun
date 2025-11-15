@@ -33,6 +33,9 @@ export class QueueService {
       this.logger.log(
         `Photo processing job added to queue: ${photoId} (Job ${job.id})`,
       );
+      this.logger.log(
+        `Queue state - Waiting: ${await this.photoProcessingQueue.getWaitingCount()}, Active: ${await this.photoProcessingQueue.getActiveCount()}`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to add photo processing job to queue: ${error.message}`,

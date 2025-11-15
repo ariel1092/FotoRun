@@ -86,14 +86,16 @@ export class PhotosController {
       user.id,
     );
 
+    // Update status to processing FIRST so user sees it immediately
+    // This happens before adding to queue to ensure immediate feedback
+    await this.photosService.updateProcessingStatus(photo.id, 'processing');
+    this.logger.log(`Photo ${photo.id} status updated to processing`);
+    
     // Try to add photo processing job to queue
     // If queue is not available, process directly
     try {
       await this.getQueueService().addPhotoProcessingJob(photo.id, photo.url);
       this.logger.log(`Photo ${photo.id} added to processing queue`);
-      // Update status to processing immediately when added to queue
-      // The worker will handle the actual processing
-      await this.photosService.updateProcessingStatus(photo.id, 'processing');
       // Reload photo to get updated status
       photo = await this.photosService.findOne(photo.id);
     } catch (error) {
@@ -185,11 +187,14 @@ export class PhotosController {
       this.logger.log(
         `${uploadedPhotos.length} photos added to processing queue`,
       );
-      // Update status to processing immediately for all photos
+      // Update status to processing FIRST for all photos (before adding to queue)
       await Promise.all(
         uploadedPhotos.map((photo) =>
           this.photosService.updateProcessingStatus(photo.id, 'processing'),
         ),
+      );
+      this.logger.log(
+        `${uploadedPhotos.length} photos status updated to processing`,
       );
       // Reload photos to get updated status
       uploadedPhotos = await Promise.all(
