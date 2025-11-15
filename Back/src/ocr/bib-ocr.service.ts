@@ -765,14 +765,30 @@ export class BibOCRService {
   private extractAllNumbersFromText(text: string): string[] {
     const numbers: Set<string> = new Set();
     
-    // Primero, encontrar todos los números de 5 dígitos (completos)
+    // 🔧 MEJORA: Ser más estricto con números de 5 dígitos
+    // La mayoría de dorsales son 3-4 dígitos, números de 5 dígitos son raros y a menudo falsos positivos
     const fiveDigitSequences = text.match(/\d{5}/g) || [];
     fiveDigitSequences.forEach(seq => {
       const num = parseInt(seq, 10);
-      // Filtrar años pero mantener otros números de 5 dígitos
-      if (!(num >= 20000 && num < 21000)) {
-        numbers.add(seq);
+      // Filtrar años
+      if (num >= 20000 && num < 21000) {
+        return;
       }
+      // Filtrar números muy grandes (probablemente combinación de múltiples números)
+      if (num > 50000) {
+        return;
+      }
+      // Filtrar si empieza con 0 (probablemente error de OCR)
+      if (seq.startsWith('0')) {
+        return;
+      }
+      // Filtrar patrones repetitivos (como 44484, 15231)
+      const digits = seq.split('');
+      const uniqueDigits = new Set(digits);
+      if (uniqueDigits.size < 3) {
+        return;
+      }
+      numbers.add(seq);
     });
     
     // Segundo, encontrar todos los números de 4 dígitos (como "1523")
