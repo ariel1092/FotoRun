@@ -132,14 +132,16 @@ export class PhotosService {
       const imageBuffer = Buffer.from(imageResponse.data, 'binary');
 
       // Detect bib numbers with enhanced processing
+      // Using lower confidence thresholds to detect more dorsales
+      // OCR will verify and correct the results
       const enhancedDetections = await this.bibDetectionService.detectBibNumbers(
         imageBuffer,
         {
-          minDetectionConfidence: 0.5,
-          minOCRConfidence: 0.6,
-          useOCR: true,
+          minDetectionConfidence: 0.3, // Lower threshold to catch more detections
+          minOCRConfidence: 0.5, // OCR will verify with this threshold
+          useOCR: true, // Always use OCR for verification
           enhanceImage: true,
-          ocrFallback: true,
+          ocrFallback: true, // Always fallback to OCR when confidence is low
         },
       );
 

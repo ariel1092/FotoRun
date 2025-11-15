@@ -28,7 +28,7 @@ export class AppService {
   } {
     return {
       supabaseUrl: this.configService.get<string>('SUPABASE_URL') || 'Not set',
-      port: this.configService.get<number>('PORT') || 8000,
+      port: this.configService.get<number>('PORT') || 8004,
       corsOrigin:
         this.configService.get<string>('CORS_ORIGIN') ||
         'http://localhost:5173',

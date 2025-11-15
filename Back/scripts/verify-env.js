@@ -22,7 +22,7 @@ const requiredVars = {
 };
 
 const optionalVars = {
-  PORT: 'Puerto del servidor (default: 8000)',
+  PORT: 'Puerto del servidor (default: 8004)',
   NODE_ENV: 'Entorno (development/production)',
   CORS_ORIGIN: 'Orígenes permitidos para CORS',
   THROTTLE_TTL: 'TTL para rate limiting (default: 60)',

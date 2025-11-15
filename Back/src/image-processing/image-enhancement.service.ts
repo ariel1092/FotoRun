@@ -181,5 +181,175 @@ export class ImageEnhancementService {
       return regionBuffer; // Return original if upscaling fails
     }
   }
+
+  /**
+   * Enhance region for tilted or bent bibs using multiple rotation angles
+   * Prueba diferentes ángulos de rotación para corregir dorsales inclinados
+   */
+  async enhanceTiltedRegion(
+    regionBuffer: Buffer,
+    options: ImageEnhancementOptions = {},
+  ): Promise<Buffer[]> {
+    const rotatedVersions: Buffer[] = [];
+    
+    try {
+      const metadata = await sharp(regionBuffer).metadata();
+      const { width, height } = metadata;
+
+      if (!width || !height) {
+        return [regionBuffer];
+      }
+
+      // Probar múltiples ángulos de rotación: -15°, -10°, -5°, 0°, 5°, 10°, 15°
+      const angles = [-15, -10, -5, 0, 5, 10, 15];
+      
+      for (const angle of angles) {
+        try {
+          let pipeline = sharp(regionBuffer);
+          
+          // Rotar si el ángulo no es 0
+          if (angle !== 0) {
+            pipeline = pipeline.rotate(angle, {
+              background: { r: 255, g: 255, b: 255, alpha: 1 }, // Fondo blanco
+            });
+          }
+          
+          // Aplicar mejoras estándar
+          const enhanced = await this.enhanceImage(
+            await pipeline.toBuffer(),
+            {
+              contrast: 2.5,
+              brightness: 1.2,
+              sharpen: true,
+              normalize: true,
+              grayscale: true,
+              ...options,
+            },
+          );
+          
+          rotatedVersions.push(enhanced);
+        } catch (error) {
+          this.logger.warn(`Error rotating region at angle ${angle}: ${error.message}`);
+          // Continuar con el siguiente ángulo
+        }
+      }
+      
+      // Si no se generaron versiones rotadas, retornar la original
+      return rotatedVersions.length > 0 ? rotatedVersions : [regionBuffer];
+    } catch (error) {
+      this.logger.error(`Error enhancing tilted region: ${error.message}`);
+      return [regionBuffer];
+    }
+  }
+
+  /**
+   * Apply perspective correction to region (for bent/folded bibs)
+   * Aplica corrección de perspectiva para dorsales doblados
+   */
+  async correctPerspective(
+    regionBuffer: Buffer,
+    options: {
+      topLeft?: { x: number; y: number };
+      topRight?: { x: number; y: number };
+      bottomLeft?: { x: number; y: number };
+      bottomRight?: { x: number; y: number };
+    } = {},
+  ): Promise<Buffer> {
+    try {
+      const metadata = await sharp(regionBuffer).metadata();
+      const { width, height } = metadata;
+
+      if (!width || !height) {
+        return regionBuffer;
+      }
+
+      // Si no se proporcionan puntos de perspectiva, usar los bordes de la imagen
+      const corners = {
+        topLeft: options.topLeft || { x: 0, y: 0 },
+        topRight: options.topRight || { x: width, y: 0 },
+        bottomLeft: options.bottomLeft || { x: 0, y: height },
+        bottomRight: options.bottomRight || { x: width, y: height },
+      };
+
+      // Crear matriz de transformación de perspectiva
+      // Sharp no tiene transformación de perspectiva directa, pero podemos usar
+      // una aproximación con remap o simplemente retornar la imagen mejorada
+      // Para una implementación real de perspectiva, necesitarías una librería como OpenCV
+      // Por ahora, aplicamos mejoras adicionales y sharpening para compensar
+      
+      const enhanced = await this.enhanceImage(regionBuffer, {
+        contrast: 3.0,
+        brightness: 1.2,
+        sharpen: true,
+        normalize: true,
+        grayscale: true,
+      });
+
+      return enhanced;
+    } catch (error) {
+      this.logger.error(`Error correcting perspective: ${error.message}`);
+      return regionBuffer;
+    }
+  }
+
+  /**
+   * Apply multiple enhancement strategies for difficult bibs
+   * Aplica múltiples estrategias de mejora para dorsales difíciles
+   */
+  async enhanceDifficultBib(
+    regionBuffer: Buffer,
+  ): Promise<Buffer[]> {
+    const strategies: Buffer[] = [];
+    
+    try {
+      // Estrategia 1: Alto contraste + sharpen extremo
+      strategies.push(
+        await this.enhanceImage(regionBuffer, {
+          contrast: 3.5,
+          brightness: 1.1,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        }),
+      );
+      
+      // Estrategia 2: Contraste medio + brillo alto
+      strategies.push(
+        await this.enhanceImage(regionBuffer, {
+          contrast: 2.5,
+          brightness: 1.5,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        }),
+      );
+      
+      // Estrategia 3: Contraste muy alto + normalización
+      strategies.push(
+        await this.enhanceImage(regionBuffer, {
+          contrast: 4.0,
+          brightness: 1.0,
+          sharpen: true,
+          normalize: true,
+          grayscale: true,
+        }),
+      );
+      
+      // Estrategia 4: Inversión de color (para textos claros en fondos oscuros)
+      const inverted = await sharp(regionBuffer)
+        .greyscale()
+        .negate()
+        .normalise()
+        .linear(2.0, -(128 * 2.0) + 128)
+        .sharpen(1.0, 1.0, 2.0)
+        .toBuffer();
+      strategies.push(inverted);
+      
+      return strategies;
+    } catch (error) {
+      this.logger.error(`Error applying multiple enhancement strategies: ${error.message}`);
+      return [regionBuffer];
+    }
+  }
 }
 

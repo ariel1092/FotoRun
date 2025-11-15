@@ -33,7 +33,7 @@ export class AppController {
     schema: {
       example: {
         supabaseUrl: 'https://fwvcougpqgrksxultizq.supabase.co',
-        port: 8000,
+        port: 8004,
         corsOrigin: 'http://localhost:5173',
       },
     },
