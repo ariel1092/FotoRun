@@ -534,13 +534,33 @@ export class BibDetectionService {
     // Limpiar y normalizar
     const cleaned = bibNumber.trim().replace(/\s+/g, '').replace(/[^\d]/g, '');
     
-    // ✅ PRIOR 1: Longitud válida (3-5 dígitos)
-    // Dorsales típicamente tienen 3-5 dígitos, raramente 2 o 6+
-    if (!/^\d{3,5}$/.test(cleaned)) {
+    // ✅ PRIOR 1: Longitud válida (2-5 dígitos, pero preferir 3-4)
+    // Dorsales típicamente tienen 3-4 dígitos, raramente 2 o 5+
+    if (!/^\d{2,5}$/.test(cleaned)) {
       return false;
     }
     
     const num = parseInt(cleaned, 10);
+    
+    // 🔧 MEJORA: Ser más estricto con números de 5 dígitos
+    // La mayoría de dorsales son 3-4 dígitos, números de 5 dígitos son raros
+    if (cleaned.length === 5) {
+      // Rechazar si es muy grande (probablemente combinación de múltiples números)
+      if (num > 50000) {
+        return false;
+      }
+      // Rechazar si empieza con 0 (probablemente error de OCR)
+      if (cleaned.startsWith('0')) {
+        return false;
+      }
+      // Rechazar si tiene patrones repetitivos (como 44484, 15231)
+      const digits = cleaned.split('');
+      const uniqueDigits = new Set(digits);
+      // Si tiene menos de 3 dígitos únicos, probablemente es un error
+      if (uniqueDigits.size < 3) {
+        return false;
+      }
+    }
     
     // ✅ PRIOR 2: Filtrar años (2020-2030 y 2000-2099)
     // Los años son metadata común, no dorsales
