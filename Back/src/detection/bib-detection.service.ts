@@ -1341,6 +1341,57 @@ export class BibDetectionService {
   }
 
   /**
+   * 🔧 NUEVO: Intentar OCR mejorado con múltiples estrategias cuando el OCR inicial falla
+   * Esto ayuda a detectar números de 4 dígitos que el OCR estándar no captura
+   */
+  private async tryImprovedOCR(
+    mainRegion: Buffer,
+    multiCropRegions: Array<{ buffer: Buffer; width: number; height: number }>,
+  ): Promise<BibOCRResult | null> {
+    try {
+      // Estrategia 1: Intentar con Google Vision si está disponible (más preciso)
+      if (this.bibOCRService.isGoogleVisionEnabled()) {
+        const visionResult = await this.bibOCRService.readBibNumberGoogleVisionOnly(mainRegion);
+        if (visionResult && visionResult.bibNumber && visionResult.bibNumber.length >= 3 && visionResult.confidence >= 0.7) {
+          return visionResult;
+        }
+      }
+      
+      // Estrategia 2: Intentar con múltiples estrategias de preprocesamiento en todas las regiones
+      const allRegions = [mainRegion, ...multiCropRegions.map(r => r.buffer)];
+      const results: BibOCRResult[] = [];
+      
+      for (const region of allRegions) {
+        // Intentar con OCR estándar mejorado
+        const result = await this.bibOCRService.readBibNumber(region);
+        if (result && result.bibNumber && result.bibNumber.length >= 3) {
+          results.push(result);
+        }
+      }
+      
+      // Si encontramos resultados, usar el mejor (más largo o mayor confianza)
+      if (results.length > 0) {
+        const bestResult = results.reduce((best, current) => {
+          if (!best.bibNumber || !current.bibNumber) return best;
+          if (current.bibNumber.length > best.bibNumber.length) return current;
+          if (current.bibNumber.length === best.bibNumber.length && 
+              current.confidence > best.confidence) return current;
+          return best;
+        });
+        
+        if (bestResult.bibNumber && bestResult.bibNumber.length >= 3 && bestResult.confidence >= 0.6) {
+          return bestResult;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      this.logger.debug(`Error en OCR mejorado: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Verifica si una región está en la zona del torso (donde están los dorsales)
    * 🔧 MEJORA: Filtrado inteligente basado en posición vertical
    * Los dorsales suelen estar entre 20% y 65% de la altura de la imagen
