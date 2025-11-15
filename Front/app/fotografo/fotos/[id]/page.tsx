@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Scan,
   Image as ImageLucide,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { photosApi } from "@/lib/api-client"
@@ -182,6 +183,25 @@ export default function PhotoDetailPage() {
       toast({
         title: "Error",
         description: "No se pudo actualizar el estado",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCancelProcessing = async () => {
+    try {
+      await photosApi.cancelProcessing(photoId)
+      toast({
+        title: "Procesamiento cancelado",
+        description: "El procesamiento de la foto ha sido cancelado",
+      })
+      // Refresh photo data
+      await fetchPhoto()
+    } catch (error: any) {
+      console.error("Error cancelling processing:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo cancelar el procesamiento",
         variant: "destructive",
       })
     }
@@ -379,15 +399,26 @@ export default function PhotoDetailPage() {
                     )}
                   </div>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManualRefresh}
-                  className="w-full"
-                >
-                  <RefreshCw className="h-3 w-3 mr-2" />
-                  Actualizar ahora
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManualRefresh}
+                    className="flex-1"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-2" />
+                    Actualizar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleCancelProcessing}
+                    className="flex-1"
+                  >
+                    <X className="h-3 w-3 mr-2" />
+                    Cancelar
+                  </Button>
+                </div>
               </div>
             </Card>
           )}

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Photo } from './photo.entity';
@@ -210,6 +210,32 @@ export class PhotosService {
       
       throw error;
     }
+  }
+
+  /**
+   * Cancel photo processing
+   */
+  async cancelProcessing(photoId: string): Promise<void> {
+    const photo = await this.photoRepository.findOne({
+      where: { id: photoId },
+    });
+
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${photoId} not found`);
+    }
+
+    // Only cancel if status is pending or processing
+    if (photo.processingStatus !== 'pending' && photo.processingStatus !== 'processing') {
+      throw new BadRequestException(
+        `Cannot cancel photo processing. Current status: ${photo.processingStatus}`,
+      );
+    }
+
+    photo.processingStatus = 'failed';
+    photo.processingError = 'Processing cancelled by user';
+    await this.photoRepository.save(photo);
+
+    this.logger.log(`Photo ${photoId} processing cancelled`);
   }
 
   /**

@@ -216,4 +216,8 @@ export const photosApi = {
   delete(id: string) {
     return apiClient.delete(`/photos/${id}`)
   },
+
+  cancelProcessing(id: string) {
+    return apiClient.post(`/photos/${id}/cancel-processing`)
+  },
 }

@@ -260,6 +260,22 @@ export class PhotosController {
     return await this.photosService.findOne(id);
   }
 
+  @Post(':id/cancel-processing')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('photographer', 'admin')
+  async cancelProcessing(
+    @Param('id') photoId: string,
+    @CurrentUser() user: User,
+  ): Promise<{ message: string }> {
+    try {
+      await this.photosService.cancelProcessing(photoId);
+      return { message: 'Photo processing cancelled successfully' };
+    } catch (error) {
+      this.logger.error(`Error cancelling photo processing: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('photographer', 'admin')
