@@ -196,44 +196,13 @@ export class PhotosService {
       
       this.logger.log(`✅ Photo ${photoId} status updated to completed IMMEDIATELY (${enhancedDetections.length} detections found)`);
 
-      // 🔧 MEJORA: Guardar detecciones en segundo plano (no bloquea el cambio de estado)
-      // Usar Promise.all para guardar todas las detecciones en paralelo
+      // 🔧 CRÍTICO: Guardar detecciones en segundo plano (NO bloquea el cambio de estado)
+      // NO usar await aquí - dejar que se ejecute en segundo plano
       if (enhancedDetections.length > 0) {
-        const detectionPromises = enhancedDetections.map(async (enhanced) => {
-          try {
-            const detection = this.detectionRepository.create({
-              photoId: photo.id,
-              bibNumber: enhanced.bibNumber,
-              confidence: enhanced.confidence,
-              detectionConfidence: enhanced.detectionConfidence,
-              ocrConfidence: enhanced.ocrConfidence,
-              detectionMethod: enhanced.metadata.method,
-              x: enhanced.x,
-              y: enhanced.y,
-              width: enhanced.width,
-              height: enhanced.height,
-              metadata: {
-                class_id: enhanced.metadata.class_id,
-                detection_id: enhanced.metadata.detection_id,
-                method: enhanced.metadata.method,
-              },
-              ocrMetadata: enhanced.ocrResult
-                ? {
-                    rawText: enhanced.ocrResult.rawText,
-                    alternatives: enhanced.ocrResult.alternatives || [],
-                  }
-                : undefined,
-            });
-
-            await this.detectionRepository.save(detection);
-          } catch (error) {
-            this.logger.error(`Error saving detection for photo ${photoId}: ${error.message}`);
-          }
+        // Ejecutar guardado de detecciones en segundo plano (sin await)
+        this.saveDetectionsAsync(photoId, photo.id, enhancedDetections).catch((error) => {
+          this.logger.error(`Error saving detections in background for photo ${photoId}: ${error.message}`);
         });
-
-        // Guardar todas las detecciones en paralelo (no bloquea)
-        await Promise.all(detectionPromises);
-        this.logger.log(`✅ All ${enhancedDetections.length} detections saved for photo ${photoId}`);
       }
 
       // Las detecciones se están guardando en segundo plano
