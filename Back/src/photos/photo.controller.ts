@@ -94,6 +94,8 @@ export class PhotosController {
       // Update status to processing immediately when added to queue
       // The worker will handle the actual processing
       await this.photosService.updateProcessingStatus(photo.id, 'processing');
+      // Reload photo to get updated status
+      photo = await this.photosService.findOne(photo.id);
     } catch (error) {
       this.logger.warn(
         `Failed to add photo ${photo.id} to queue: ${error.message}. Processing directly...`,
@@ -101,9 +103,11 @@ export class PhotosController {
       // Fallback: process photo directly if queue is not available
       // Update status to processing FIRST so user sees it immediately
       await this.photosService.updateProcessingStatus(photo.id, 'processing');
+      // Reload photo to get updated status
+      photo = await this.photosService.findOne(photo.id);
       // Process in background without blocking the response
       this.photosService
-        .processPhoto(photo.id, photo.url)
+        .processPhoto(photo.id, photo.url, true) // Skip status update since we already did it
         .catch((processError) => {
           this.logger.error(
             `Error processing photo ${photo.id} directly: ${processError.message}`,
@@ -167,7 +171,7 @@ export class PhotosController {
       ),
     );
 
-    const uploadedPhotos = await Promise.all(uploadPromises);
+    let uploadedPhotos = await Promise.all(uploadPromises);
 
     // Try to add photo processing jobs to queue
     // If queue is not available, process directly
