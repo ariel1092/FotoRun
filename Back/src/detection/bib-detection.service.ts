@@ -339,16 +339,38 @@ export class BibDetectionService {
         const minOCRConfidence = options.minOCRConfidence || 0.5;
         
         // 🧠 DESAMBIGUACIÓN MULTIMODAL: Usar contexto visual y textual para validar
-        const disambiguatedResult = await this.disambiguateWithContext(
-          ocrResult,
-          bibNumber,
-          detection,
-          imageBuffer,
-          expanded,
-        );
+        // 🔧 MEJORA: Solo desambiguar si el OCR result es corto (2 dígitos) o si Roboflow es más largo
+        // NO desambiguar si el OCR ya tiene 4 dígitos y Roboflow tiene 2 dígitos
+        const shouldDisambiguate = 
+          ocrResult.bibNumber.length <= 2 || // OCR es corto, puede necesitar desambiguación
+          (bibNumber.length > ocrResult.bibNumber.length && bibNumber.length >= 3); // Roboflow es más largo y válido
         
-        if (disambiguatedResult) {
-          ocrResult = disambiguatedResult;
+        if (shouldDisambiguate) {
+          const disambiguatedResult = await this.disambiguateWithContext(
+            ocrResult,
+            bibNumber,
+            detection,
+            imageBuffer,
+            expanded,
+          );
+          
+          if (disambiguatedResult) {
+            // 🔧 MEJORA: Solo usar resultado desambiguado si es mejor (más largo o mayor confianza)
+            // NO cambiar de 4 dígitos a 2 dígitos
+            if (disambiguatedResult.bibNumber.length >= ocrResult.bibNumber.length ||
+                (disambiguatedResult.bibNumber.length === ocrResult.bibNumber.length && 
+                 disambiguatedResult.confidence > ocrResult.confidence + 0.1)) {
+              ocrResult = disambiguatedResult;
+            } else {
+              this.logger.log(
+                `Desambiguación multimodal rechazada: manteniendo "${ocrResult.bibNumber}" (${ocrResult.bibNumber.length} dígitos) sobre "${disambiguatedResult.bibNumber}" (${disambiguatedResult.bibNumber.length} dígitos)`,
+              );
+            }
+          }
+        } else {
+          this.logger.log(
+            `Desambiguación multimodal omitida: OCR tiene ${ocrResult.bibNumber.length} dígitos, Roboflow tiene ${bibNumber.length} dígitos`,
+          );
         }
         
         // If Roboflow didn't give us a valid bib number, always use OCR
@@ -364,11 +386,20 @@ export class BibDetectionService {
         // If OCR confidence is high enough, prefer OCR result over Roboflow
         else if (ocrResult.confidence >= minOCRConfidence) {
           if (ocrResult.bibNumber !== bibNumber) {
+            // 🔧 MEJORA: Priorizar números más largos del OCR sobre números cortos de Roboflow
             // OCR found different number - prefer OCR especially if it's longer (more complete)
-            const ocrIsLonger = ocrResult.bibNumber.length >= 3 && bibNumber.length < 3;
+            const ocrIsLonger = ocrResult.bibNumber.length > bibNumber.length;
             const ocrIs4Digits = ocrResult.bibNumber.length === 4;
+            const roboflowIs2Digits = bibNumber.length === 2;
+            const ocrIs3Or4Digits = ocrResult.bibNumber.length >= 3;
             
-            if (ocrIsLonger || ocrIs4Digits || ocrResult.confidence > detection.confidence * 1.2) {
+            // Priorizar OCR si:
+            // 1. Es más largo
+            // 2. Es de 4 dígitos (más común en carreras)
+            // 3. OCR es 3-4 dígitos y Roboflow es 2 dígitos (Roboflow probablemente detectó fragmento)
+            // 4. OCR tiene confianza significativamente mayor
+            if (ocrIsLonger || ocrIs4Digits || (ocrIs3Or4Digits && roboflowIs2Digits) || 
+                ocrResult.confidence > detection.confidence * 1.2) {
               method = 'ocr_corrected';
               bibNumber = ocrResult.bibNumber;
               this.logger.log(
