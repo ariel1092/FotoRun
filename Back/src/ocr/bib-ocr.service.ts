@@ -85,6 +85,7 @@ export class BibOCRService {
   /**
    * Read bib number from image region with multiple preprocessing attempts
    * Mejorado para manejar dorsales inclinados, doblados o parcialmente tapados
+   * 🔧 MEJORA: Fast path para números claros y visibles
    */
   async readBibNumber(regionBuffer: Buffer): Promise<BibOCRResult | null> {
     try {
@@ -93,6 +94,48 @@ export class BibOCRService {
       // First, upscale region if it's too small (improves OCR accuracy)
       const upscaledRegion =
         await this.imageEnhancementService.upscaleRegionForOCR(regionBuffer);
+
+      // 🔧 FAST PATH: Intentar primero con preprocesamiento ligero para números claros
+      // Si el número es claro y visible, esto debería detectarlo rápidamente
+      try {
+        const quickEnhanced = await this.imageEnhancementService.enhanceImage(
+          upscaledRegion,
+          {
+            contrast: 2.0,
+            brightness: 1.1,
+            sharpen: true,
+            normalize: true,
+            grayscale: true,
+          },
+        );
+
+        const quickResult = await worker.recognize(quickEnhanced);
+        let quickBibNumber = this.extractBibNumber(quickResult.data.text);
+        
+        if (!quickBibNumber) {
+          const cleanedText = this.cleanText(quickResult.data.text);
+          quickBibNumber = this.extractBibNumber(cleanedText);
+        }
+
+        // Si encontramos un número de 3-4 dígitos con alta confianza, retornarlo inmediatamente
+        if (quickBibNumber && 
+            quickBibNumber.length >= 3 && 
+            quickBibNumber.length <= 4 &&
+            quickResult.data.confidence >= 70) {
+          this.logger.log(
+            `✅ FAST PATH: Detección rápida de dorsal claro "${quickBibNumber}" (confianza: ${quickResult.data.confidence.toFixed(2)})`,
+          );
+          return {
+            bibNumber: quickBibNumber,
+            confidence: quickResult.data.confidence / 100,
+            rawText: quickResult.data.text,
+            method: 'tesseract',
+          };
+        }
+      } catch (error) {
+        // Continuar con estrategias completas si fast path falla
+        this.logger.debug(`Fast path falló, continuando con estrategias completas: ${error.message}`);
+      }
 
       // Intentar primero con las estrategias estándar
       let bestResult: {
@@ -103,7 +146,7 @@ export class BibOCRService {
 
       // Strategy 1: Try standard preprocessing strategies
       const preprocessingStrategies = [
-        // Strategy 1: High contrast
+        // Strategy 1: High contrast (optimizado para números claros)
         {
           contrast: 2.5,
           brightness: 1.2,
@@ -191,10 +234,19 @@ export class BibOCRService {
             bestResult = { bibNumber, confidence, rawText: text };
           }
 
-          // If we got a high confidence result (>80), no need to try more strategies
-          if (confidence > 80 && bibNumber.length >= 3) {
+          // 🔧 MEJORA: Para números claros (3-4 dígitos con alta confianza), retornar inmediatamente
+          // Esto acelera el procesamiento cuando el número es visible y claro
+          if (confidence > 75 && bibNumber.length >= 3 && bibNumber.length <= 4) {
             this.logger.log(
-              `OCR success on attempt ${i + 1}: "${bibNumber}" (confidence: ${confidence.toFixed(2)})`,
+              `✅ OCR success on attempt ${i + 1}: "${bibNumber}" (confidence: ${confidence.toFixed(2)}) - número claro detectado`,
+            );
+            break; // No necesitamos probar más estrategias
+          }
+          
+          // También retornar si tenemos muy alta confianza (>85) independientemente de longitud
+          if (confidence > 85 && bibNumber.length >= 3) {
+            this.logger.log(
+              `✅ OCR success on attempt ${i + 1}: "${bibNumber}" (confidence: ${confidence.toFixed(2)}) - alta confianza`,
             );
             break;
           }

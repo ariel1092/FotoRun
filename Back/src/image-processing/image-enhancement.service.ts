@@ -104,19 +104,52 @@ export class ImageEnhancementService {
 
   /**
    * Enhance region for OCR (optimized for text reading)
+   * 🔧 MEJORA: Optimizado para números claros y visibles
    */
   async enhanceRegionForOCR(
     regionBuffer: Buffer,
     options: ImageEnhancementOptions = {},
   ): Promise<Buffer> {
     return this.enhanceImage(regionBuffer, {
-      contrast: 2.0,
+      contrast: 2.5, // Aumentado de 2.0 para mejor contraste en números claros
       brightness: 1.2,
       sharpen: true,
       normalize: true,
       grayscale: true,
       ...options,
     });
+  }
+
+  /**
+   * 🔧 NUEVO: Preprocesamiento optimizado para imágenes de alta calidad
+   * Cuando el número es claro y visible, este método maximiza la calidad
+   */
+  async enhanceHighQualityImage(
+    imageBuffer: Buffer,
+    options: ImageEnhancementOptions = {},
+  ): Promise<Buffer> {
+    try {
+      let pipeline = sharp(imageBuffer);
+
+      // Para imágenes de alta calidad, hacer mejoras más sutiles pero efectivas
+      pipeline = pipeline
+        .normalise() // Normalizar histograma
+        .greyscale() // Escala de grises para OCR
+        .linear(2.5, -(128 * 2.5) + 128) // Contraste moderado
+        .modulate({ brightness: 1.15 }) // Brillo ligeramente aumentado
+        .sharpen(1.5, 1.5, 3.0); // Sharpening más agresivo para números claros
+
+      const enhanced = await pipeline.toBuffer();
+      
+      this.logger.debug(
+        `High-quality image enhanced: ${imageBuffer.length} -> ${enhanced.length} bytes`,
+      );
+
+      return enhanced;
+    } catch (error) {
+      this.logger.error(`Error enhancing high-quality image: ${error.message}`);
+      return imageBuffer;
+    }
   }
 
   /**
