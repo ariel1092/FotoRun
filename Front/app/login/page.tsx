@@ -62,31 +62,53 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 flex items-center justify-center bg-muted/30 py-12">
-        <div className="container max-w-md">
-          <Card className="p-8">
-            <div className="mb-8 text-center space-y-2">
-              <h1 className="text-2xl font-bold text-foreground">Bienvenido</h1>
-              <p className="text-sm text-muted-foreground">Ingresá a tu cuenta para continuar</p>
+      <main className="flex-1 flex items-center justify-center bg-muted/30 py-6 sm:py-12 px-4">
+        <div className="container max-w-md w-full">
+          <Card className="p-6 sm:p-8">
+            <div className="mb-6 sm:mb-8 text-center space-y-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Bienvenido</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Ingresá a tu cuenta para continuar</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" placeholder="tu@email.com" required />
+                <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
+                <Input 
+                  id="email" 
+                  name="email" 
+                  type="email" 
+                  placeholder="tu@email.com" 
+                  required 
+                  className="h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
+                  inputMode="email"
+                />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Contraseña</Label>
-                  <Link href="/recuperar-password" className="text-xs text-primary hover:underline">
+                  <Label htmlFor="password" className="text-sm sm:text-base">Contraseña</Label>
+                  <Link 
+                    href="/recuperar-password" 
+                    className="text-xs sm:text-sm text-primary hover:underline min-h-[44px] flex items-center"
+                  >
                     ¿Olvidaste tu contraseña?
                   </Link>
                 </div>
-                <Input id="password" name="password" type="password" placeholder="••••••••" required />
+                <Input 
+                  id="password" 
+                  name="password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  required 
+                  className="h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
+                />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full min-h-[48px] sm:min-h-[44px] text-base sm:text-lg" 
+                disabled={isLoading}
+              >
                 {isLoading ? "Ingresando..." : "Ingresar"}
               </Button>
             </form>
@@ -101,9 +123,9 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="mt-6 text-center text-sm">
+              <div className="mt-6 text-center text-sm sm:text-base">
                 <span className="text-muted-foreground">¿No tenés cuenta? </span>
-                <Link href="/registro" className="font-medium text-primary hover:underline">
+                <Link href="/registro" className="font-medium text-primary hover:underline min-h-[44px] inline-flex items-center">
                   Registrate
                 </Link>
               </div>

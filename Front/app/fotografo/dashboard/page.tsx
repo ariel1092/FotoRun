@@ -147,14 +147,14 @@ export default function PhotographerDashboardPage() {
   }
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="container py-6 sm:py-8 space-y-4 sm:space-y-6 px-4 sm:px-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen de tus eventos y fotos</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Resumen de tus eventos y fotos</p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto min-h-[44px]">
           <Link href="/fotografo/eventos/nuevo">
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Evento
@@ -164,7 +164,7 @@ export default function PhotographerDashboardPage() {
 
       {/* Stats Cards */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="p-4 animate-pulse">
               <div className="h-20 bg-muted rounded" />
@@ -172,7 +172,7 @@ export default function PhotographerDashboardPage() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="p-4 hover:shadow-lg transition-shadow">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -235,30 +235,33 @@ export default function PhotographerDashboardPage() {
         </div>
       )}
 
-      <Tabs defaultValue="events" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="events" className="gap-2">
+      <Tabs defaultValue="events" className="space-y-4 sm:space-y-6">
+        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
+          <TabsTrigger value="events" className="gap-1 sm:gap-2 text-xs sm:text-sm min-h-[44px]">
             <Calendar className="h-4 w-4" />
-            Eventos
+            <span className="hidden sm:inline">Eventos</span>
+            <span className="sm:hidden">Eventos</span>
           </TabsTrigger>
-          <TabsTrigger value="photos" className="gap-2">
+          <TabsTrigger value="photos" className="gap-1 sm:gap-2 text-xs sm:text-sm min-h-[44px]">
             <ImageIcon className="h-4 w-4" />
-            Fotos Recientes
+            <span className="hidden sm:inline">Fotos Recientes</span>
+            <span className="sm:hidden">Fotos</span>
           </TabsTrigger>
-          <TabsTrigger value="stats" className="gap-2">
+          <TabsTrigger value="stats" className="gap-1 sm:gap-2 text-xs sm:text-sm min-h-[44px]">
             <BarChart3 className="h-4 w-4" />
-            Estadísticas
+            <span className="hidden sm:inline">Estadísticas</span>
+            <span className="sm:hidden">Stats</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="events" className="space-y-4">
-          <Card className="p-6">
-            <div className="mb-6 flex items-center justify-between">
+          <Card className="p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">Mis Eventos</h2>
-                <p className="text-sm text-muted-foreground">Administrá tus eventos y fotos</p>
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground">Mis Eventos</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">Administrá tus eventos y fotos</p>
               </div>
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="w-full sm:w-auto min-h-[44px]">
                 <Link href="/fotografo/eventos">
                   Ver Todos
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -294,34 +297,35 @@ export default function PhotographerDashboardPage() {
                     const isActive = new Date(event.date) >= new Date()
 
                     return (
-                      <Card key={event.id} className="p-4 hover:shadow-lg transition-shadow">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-foreground">{event.name}</h3>
-                              <Badge variant={isActive ? "default" : "secondary"}>
+                      <Card key={event.id} className="p-3 sm:p-4 hover:shadow-lg transition-shadow">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                          <div className="flex-1 space-y-2 w-full sm:w-auto">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-foreground text-sm sm:text-base">{event.name}</h3>
+                              <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
                                 {isActive ? "Activo" : "Finalizado"}
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
+                                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                                 {new Date(event.date).toLocaleDateString("es-AR")}
                               </span>
                               <span className="flex items-center gap-1">
-                                <ImageIcon className="h-4 w-4" />
+                                <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                                 {eventStats?.count || 0} fotos
                               </span>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" asChild>
+                          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                            <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-initial min-h-[44px]">
                               <Link href={`/fotografo/eventos/${event.id}`}>Ver Detalles</Link>
                             </Button>
-                            <Button size="sm" asChild>
+                            <Button size="sm" asChild className="flex-1 sm:flex-initial min-h-[44px]">
                               <Link href={`/fotografo/eventos/${event.id}/subir`}>
                                 <Upload className="mr-2 h-4 w-4" />
-                                Subir Fotos
+                                <span className="hidden sm:inline">Subir Fotos</span>
+                                <span className="sm:hidden">Subir</span>
                               </Link>
                             </Button>
                             <AlertDialog>
@@ -330,6 +334,7 @@ export default function PhotographerDashboardPage() {
                                   variant="destructive"
                                   size="sm"
                                   disabled={deletingEventId === event.id}
+                                  className="min-h-[44px] min-w-[44px]"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -364,13 +369,13 @@ export default function PhotographerDashboardPage() {
         </TabsContent>
 
         <TabsContent value="photos" className="space-y-4">
-          <Card className="p-6">
-            <div className="mb-6 flex items-center justify-between">
+          <Card className="p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">Fotos Recientes</h2>
-                <p className="text-sm text-muted-foreground">Últimas fotos subidas</p>
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground">Fotos Recientes</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">Últimas fotos subidas</p>
               </div>
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild className="w-full sm:w-auto min-h-[44px]">
                 <Link href="/fotografo/fotos">
                   Ver Todas
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -379,13 +384,13 @@ export default function PhotographerDashboardPage() {
             </div>
 
             {recentPhotos.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <ImageIcon className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>No hay fotos aún</p>
-                <p className="text-sm mt-2">Sube fotos desde un evento para comenzar</p>
+              <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                <ImageIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 mb-4 opacity-50" />
+                <p className="text-sm sm:text-base">No hay fotos aún</p>
+                <p className="text-xs sm:text-sm mt-2">Sube fotos desde un evento para comenzar</p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {recentPhotos.map((photo) => {
                   const getStatusBadge = (status: string) => {
                     switch (status) {
@@ -487,14 +492,14 @@ export default function PhotographerDashboardPage() {
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-4">
-          <Card className="p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-foreground">Estadísticas Detalladas</h2>
-              <p className="text-sm text-muted-foreground">Resumen completo de tus fotos y detecciones</p>
+          <Card className="p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground">Estadísticas Detalladas</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">Resumen completo de tus fotos y detecciones</p>
             </div>
 
             {loading ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {[1, 2, 3].map((i) => (
                   <Card key={i} className="p-4 animate-pulse">
                     <div className="h-16 bg-muted rounded" />
@@ -502,7 +507,7 @@ export default function PhotographerDashboardPage() {
                 ))}
               </div>
             ) : stats ? (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
                 <Card className="p-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">

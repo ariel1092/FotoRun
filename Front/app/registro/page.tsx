@@ -121,52 +121,89 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 flex items-center justify-center bg-muted/30 py-12">
-        <div className="container max-w-md">
-          <Card className="p-8">
-            <div className="mb-8 text-center space-y-2">
+      <main className="flex-1 flex items-center justify-center bg-muted/30 py-6 sm:py-12 px-4">
+        <div className="container max-w-md w-full">
+          <Card className="p-6 sm:p-8">
+            <div className="mb-6 sm:mb-8 text-center space-y-2">
               <div className="flex justify-center mb-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-                  <Camera className="h-7 w-7 text-primary-foreground" />
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg bg-primary">
+                  <Camera className="h-7 w-7 sm:h-8 sm:w-8 text-primary-foreground" />
                 </div>
               </div>
-              <h1 className="text-2xl font-bold text-foreground">Crear Cuenta</h1>
-              <p className="text-sm text-muted-foreground">Registrate para empezar a buscar tus fotos</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Crear Cuenta</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Registrate para empezar a buscar tus fotos</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre Completo</Label>
-                <Input id="name" name="name" type="text" placeholder="Juan Pérez" required minLength={2} maxLength={100} />
+                <Label htmlFor="name" className="text-sm sm:text-base">Nombre Completo</Label>
+                <Input 
+                  id="name" 
+                  name="name" 
+                  type="text" 
+                  placeholder="Juan Pérez" 
+                  required 
+                  minLength={2} 
+                  maxLength={100}
+                  className="h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" placeholder="tu@email.com" required />
+                <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
+                <Input 
+                  id="email" 
+                  name="email" 
+                  type="email" 
+                  placeholder="tu@email.com" 
+                  required
+                  className="h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
+                  inputMode="email"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input id="password" name="password" type="password" placeholder="••••••••" required minLength={6} maxLength={50} />
+                <Label htmlFor="password" className="text-sm sm:text-base">Contraseña</Label>
+                <Input 
+                  id="password" 
+                  name="password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  required 
+                  minLength={6} 
+                  maxLength={50}
+                  className="h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
+                />
                 <p className="text-xs text-muted-foreground">Mínimo 6 caracteres, máximo 50</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
-                <Input id="confirm-password" name="confirm-password" type="password" placeholder="••••••••" required />
+                <Label htmlFor="confirm-password" className="text-sm sm:text-base">Confirmar Contraseña</Label>
+                <Input 
+                  id="confirm-password" 
+                  name="confirm-password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  required
+                  className="h-12 sm:h-10 text-base sm:text-sm min-h-[48px]"
+                />
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox id="terms" required />
-                <label htmlFor="terms" className="text-sm text-muted-foreground leading-none cursor-pointer">
+              <div className="flex items-start space-x-2 min-h-[44px]">
+                <Checkbox id="terms" required className="mt-1 min-h-[20px] min-w-[20px]" />
+                <label htmlFor="terms" className="text-sm text-muted-foreground leading-relaxed cursor-pointer flex-1">
                   Acepto los{" "}
-                  <Link href="/terminos" className="text-primary hover:underline">
+                  <Link href="/terminos" className="text-primary hover:underline min-h-[44px] inline-flex items-center">
                     términos y condiciones
                   </Link>
                 </label>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full min-h-[48px] sm:min-h-[44px] text-base sm:text-lg" 
+                disabled={isLoading}
+              >
                 {isLoading ? "Creando cuenta..." : "Crear Cuenta"}
               </Button>
             </form>
@@ -181,9 +218,9 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="mt-6 text-center text-sm">
+              <div className="mt-6 text-center text-sm sm:text-base">
                 <span className="text-muted-foreground">¿Ya tenés cuenta? </span>
-                <Link href="/login" className="font-medium text-primary hover:underline">
+                <Link href="/login" className="font-medium text-primary hover:underline min-h-[44px] inline-flex items-center">
                   Ingresá
                 </Link>
               </div>

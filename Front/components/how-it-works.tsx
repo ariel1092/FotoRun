@@ -24,18 +24,18 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="como-funciona" className="py-20 bg-muted/20">
-      <div className="container">
-        <div className="mx-auto max-w-2xl text-center mb-16">
-          <h2 className="text-balance text-3xl font-bold tracking-tight text-primary sm:text-4xl mb-4 uppercase">
+    <section id="como-funciona" className="py-12 sm:py-16 lg:py-20 bg-muted/20">
+      <div className="container px-4 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center mb-8 sm:mb-12 lg:mb-16">
+          <h2 className="text-balance text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-primary mb-3 sm:mb-4 uppercase">
             ¿Cómo funciona?
           </h2>
-          <p className="text-pretty text-lg text-muted-foreground leading-relaxed">
+          <p className="text-pretty text-base sm:text-lg text-muted-foreground leading-relaxed">
             Tres simples pasos para tener tus fotos deportivas
           </p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-6 sm:gap-8 grid-cols-1 md:grid-cols-3">
           {steps.map((step, index) => {
             const Icon = step.icon
             return (

@@ -76,9 +76,9 @@ export function SearchForm() {
   }
 
   return (
-    <form onSubmit={handleSearch} className="space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+    <form onSubmit={handleSearch} className="space-y-4 sm:space-y-6 rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
       <div className="space-y-2">
-        <Label htmlFor="bibNumber">Número de dorsal *</Label>
+        <Label htmlFor="bibNumber" className="text-base sm:text-sm">Número de dorsal *</Label>
         <Input
           id="bibNumber"
           type="number"
@@ -86,22 +86,23 @@ export function SearchForm() {
           value={bibNumber}
           onChange={(e) => setBibNumber(e.target.value)}
           min="1"
-          className="h-12"
+          className="h-12 sm:h-12 text-base sm:text-sm min-h-[48px]"
           required
+          inputMode="numeric"
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="race">Evento (opcional)</Label>
+          <Label htmlFor="race" className="text-base sm:text-sm">Evento (opcional)</Label>
           <Select value={raceId} onValueChange={setRaceId} disabled={loadingRaces}>
-            <SelectTrigger id="race" className="h-12">
+            <SelectTrigger id="race" className="h-12 sm:h-12 text-base sm:text-sm min-h-[48px]">
               <SelectValue placeholder={loadingRaces ? "Cargando eventos..." : "Seleccioná un evento"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los eventos</SelectItem>
               {races.map((race) => (
-                <SelectItem key={race.id} value={race.id}>
+                <SelectItem key={race.id} value={race.id} className="min-h-[44px]">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     {race.name}
@@ -113,15 +114,15 @@ export function SearchForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="discipline">Disciplina (opcional)</Label>
+          <Label htmlFor="discipline" className="text-base sm:text-sm">Disciplina (opcional)</Label>
           <Select value={discipline} onValueChange={setDiscipline}>
-            <SelectTrigger id="discipline" className="h-12">
+            <SelectTrigger id="discipline" className="h-12 sm:h-12 text-base sm:text-sm min-h-[48px]">
               <SelectValue placeholder="Seleccioná la disciplina" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="all" className="min-h-[44px]">Todas</SelectItem>
               {disciplines.map((disc) => (
-                <SelectItem key={disc.id} value={disc.id}>
+                <SelectItem key={disc.id} value={disc.id} className="min-h-[44px]">
                   {disc.name}
                 </SelectItem>
               ))}
@@ -130,7 +131,7 @@ export function SearchForm() {
         </div>
       </div>
 
-      <Button type="submit" size="lg" className="w-full">
+      <Button type="submit" size="lg" className="w-full h-12 sm:h-12 text-base sm:text-lg min-h-[48px] sm:min-h-[48px]">
         <Search className="mr-2 h-5 w-5" />
         Buscar fotos
       </Button>

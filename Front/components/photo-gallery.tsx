@@ -135,29 +135,33 @@ export function PhotoGallery() {
   const totalPrice = photos.filter((p) => selectedPhotos.has(p.id)).reduce((sum) => sum + 500, 0)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 rounded-lg border border-border bg-card p-4">
+        <div className="flex-1">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Se encontraron <span className="font-semibold text-foreground">{photos.length}</span> fotos
           </p>
           {totalSelected > 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mt-1">
               {totalSelected} seleccionadas · ${totalPrice}
             </p>
           )}
         </div>
         {totalSelected > 0 && (
-          <Button onClick={handleAddToCart}>
+          <Button 
+            onClick={handleAddToCart} 
+            className="w-full sm:w-auto min-h-[44px]"
+            size="lg"
+          >
             <ShoppingCart className="mr-2 h-4 w-4" />
             Agregar al carrito ({totalSelected})
           </Button>
         )}
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {photos.map((photo) => (
-          <Card key={photo.id} className="group relative overflow-hidden">
+          <Card key={photo.id} className="group relative overflow-hidden hover:shadow-lg transition-shadow">
             <div className="relative aspect-3/2 overflow-hidden bg-muted">
               <img
                 src={buildCloudinaryWatermarkedUrl(
@@ -165,44 +169,55 @@ export function PhotoGallery() {
                   'JERPRO FOTOGRAFIA'
                 )}
                 alt={`Foto ${photo.originalName}`}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                className="h-full w-full object-cover transition-transform group-hover:scale-105 touch-none"
+                loading="lazy"
               />
               <div className="absolute right-2 top-2 flex gap-2">
                 <Button
                   size="icon"
                   variant="secondary"
-                  className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="h-10 w-10 sm:h-8 sm:w-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px]"
                   onClick={() => setLightboxPhoto(
                     buildCloudinaryWatermarkedUrl(
                       photo.url,
                       'JERPRO FOTOGRAFIA'
                     )
                   )}
+                  aria-label="Ampliar foto"
                 >
-                  <ZoomIn className="h-4 w-4" />
+                  <ZoomIn className="h-5 w-5 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="p-3 sm:p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm font-medium text-foreground">Evento JERPRO</p>
+                <div className="flex-1 space-y-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">Evento JERPRO</p>
                   <p className="text-xs text-muted-foreground">{new Date(photo.createdAt).toLocaleString("es-AR")}</p>
                 </div>
-                <Badge variant="secondary">Dorsal {bibNumber}</Badge>
+                <Badge variant="secondary" className="shrink-0">Dorsal {bibNumber}</Badge>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-h-[44px]">
                   <Checkbox
                     id={`photo-${photo.id}`}
                     checked={selectedPhotos.has(photo.id)}
                     onCheckedChange={() => togglePhotoSelection(photo.id)}
+                    className="min-h-[20px] min-w-[20px]"
                   />
-                  <label htmlFor={`photo-${photo.id}`} className="text-sm font-medium text-foreground cursor-pointer">
+                  <label 
+                    htmlFor={`photo-${photo.id}`} 
+                    className="text-sm sm:text-base font-medium text-foreground cursor-pointer min-h-[44px] flex items-center"
+                  >
                     $500
                   </label>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => togglePhotoSelection(photo.id)}>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => togglePhotoSelection(photo.id)}
+                  className="min-h-[44px] px-3 sm:px-4"
+                >
                   {selectedPhotos.has(photo.id) ? "Quitar" : "Seleccionar"}
                 </Button>
               </div>
