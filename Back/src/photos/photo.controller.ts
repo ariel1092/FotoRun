@@ -364,4 +364,57 @@ export class PhotosController {
     await this.photosService.remove(id, user.id, user.role);
     return { message: 'Photo deleted successfully' };
   }
+
+  /**
+   * Process pending photos directly (fallback when worker is not available)
+   */
+  @Post('process-pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('photographer', 'admin')
+  async processPendingPhotos(
+    @CurrentUser() user: User,
+  ): Promise<{ message: string; processed: number }> {
+    try {
+      const queueStats = await this.getQueueService().getQueueStats();
+      this.logger.log(
+        `Processing pending photos. Queue stats: Waiting: ${queueStats.waiting}, Active: ${queueStats.active}`,
+      );
+
+      // Get all photos with processing status for this photographer
+      const pendingPhotos = await this.photosService.findAllByPhotographer(user.id);
+      const processingPhotos = pendingPhotos.filter(
+        (photo) => photo.processingStatus === 'processing',
+      );
+
+      this.logger.log(
+        `Found ${processingPhotos.length} photos in processing status`,
+      );
+
+      if (processingPhotos.length === 0) {
+        return { message: 'No pending photos to process', processed: 0 };
+      }
+
+      // Process each photo directly
+      let processed = 0;
+      for (const photo of processingPhotos) {
+        try {
+          await this.photosService.processPhoto(photo.id, photo.url, true);
+          processed++;
+          this.logger.log(`Processed pending photo: ${photo.id}`);
+        } catch (error) {
+          this.logger.error(
+            `Error processing pending photo ${photo.id}: ${error.message}`,
+          );
+        }
+      }
+
+      return {
+        message: `Processed ${processed} pending photos`,
+        processed,
+      };
+    } catch (error) {
+      this.logger.error(`Error processing pending photos: ${error.message}`);
+      throw error;
+    }
+  }
 }
