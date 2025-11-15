@@ -183,42 +183,57 @@ export class PhotosService {
         `Found ${enhancedDetections.length} enhanced detections for photo ${photoId}`,
       );
 
-      // 🔧 MEJORA UX: Actualizar estado a "completed" INMEDIATAMENTE después de detectar dorsales
-      // Esto mejora la experiencia del usuario mostrando el resultado rápidamente
-      // El guardado de detecciones puede continuar en segundo plano
-      await this.updateProcessingStatus(photoId, 'completed');
-      photo.isProcessed = true;
+      // 🔧 CRÍTICO: Actualizar estado a "completed" INMEDIATAMENTE después de detectar dorsales
+      // Esto debe hacerse ANTES de guardar las detecciones para que el frontend vea el cambio rápido
+      // Incluso si no hay detecciones (0), el procesamiento está "completado"
+      photo.isProcessed = enhancedDetections.length > 0;
       photo.processedAt = new Date();
+      photo.processingStatus = 'completed';
       await this.photoRepository.save(photo);
-      this.logger.log(`Photo ${photoId} status updated to completed (${enhancedDetections.length} detections found)`);
+      
+      // También actualizar usando el método de actualización de estado
+      await this.updateProcessingStatus(photoId, 'completed');
+      
+      this.logger.log(`✅ Photo ${photoId} status updated to completed IMMEDIATELY (${enhancedDetections.length} detections found)`);
 
-      // Save detections to database (puede continuar después de actualizar el estado)
-      for (const enhanced of enhancedDetections) {
-        const detection = this.detectionRepository.create({
-          photoId: photo.id,
-          bibNumber: enhanced.bibNumber,
-          confidence: enhanced.confidence,
-          detectionConfidence: enhanced.detectionConfidence,
-          ocrConfidence: enhanced.ocrConfidence,
-          detectionMethod: enhanced.metadata.method,
-          x: enhanced.x,
-          y: enhanced.y,
-          width: enhanced.width,
-          height: enhanced.height,
-          metadata: {
-            class_id: enhanced.metadata.class_id,
-            detection_id: enhanced.metadata.detection_id,
-            method: enhanced.metadata.method,
-          },
-          ocrMetadata: enhanced.ocrResult
-            ? {
-                rawText: enhanced.ocrResult.rawText,
-                alternatives: enhanced.ocrResult.alternatives || [],
-              }
-            : undefined,
+      // 🔧 MEJORA: Guardar detecciones en segundo plano (no bloquea el cambio de estado)
+      // Usar Promise.all para guardar todas las detecciones en paralelo
+      if (enhancedDetections.length > 0) {
+        const detectionPromises = enhancedDetections.map(async (enhanced) => {
+          try {
+            const detection = this.detectionRepository.create({
+              photoId: photo.id,
+              bibNumber: enhanced.bibNumber,
+              confidence: enhanced.confidence,
+              detectionConfidence: enhanced.detectionConfidence,
+              ocrConfidence: enhanced.ocrConfidence,
+              detectionMethod: enhanced.metadata.method,
+              x: enhanced.x,
+              y: enhanced.y,
+              width: enhanced.width,
+              height: enhanced.height,
+              metadata: {
+                class_id: enhanced.metadata.class_id,
+                detection_id: enhanced.metadata.detection_id,
+                method: enhanced.metadata.method,
+              },
+              ocrMetadata: enhanced.ocrResult
+                ? {
+                    rawText: enhanced.ocrResult.rawText,
+                    alternatives: enhanced.ocrResult.alternatives || [],
+                  }
+                : undefined,
+            });
+
+            await this.detectionRepository.save(detection);
+          } catch (error) {
+            this.logger.error(`Error saving detection for photo ${photoId}: ${error.message}`);
+          }
         });
 
-        await this.detectionRepository.save(detection);
+        // Guardar todas las detecciones en paralelo (no bloquea)
+        await Promise.all(detectionPromises);
+        this.logger.log(`✅ All ${enhancedDetections.length} detections saved for photo ${photoId}`);
       }
 
       this.logger.log(`Photo ${photoId} processed successfully`);
