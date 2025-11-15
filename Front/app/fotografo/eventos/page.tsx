@@ -4,17 +4,29 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, ImageIcon, Plus, Upload, ArrowRight, Search } from "lucide-react"
+import { Calendar, ImageIcon, Plus, Upload, ArrowRight, Search, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { racesApi } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function EventsPage() {
   const [events, setEvents] = useState<any[]>([])
   const [filteredEvents, setFilteredEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -64,6 +76,28 @@ export default function EventsPage() {
       return { label: "Hoy", variant: "default" as const }
     } else {
       return { label: "Próximo", variant: "default" as const }
+    }
+  }
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      setDeletingEventId(eventId)
+      await racesApi.delete(eventId, false) // Soft delete por defecto
+      toast({
+        title: "Evento eliminado",
+        description: "El evento ha sido desactivado exitosamente",
+      })
+      // Recargar eventos
+      await fetchEvents()
+    } catch (error: any) {
+      console.error("Error deleting event:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el evento",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingEventId(null)
     }
   }
 
@@ -177,6 +211,36 @@ export default function EventsPage() {
                         Subir Fotos
                       </Link>
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingEventId === event.id}
+                          className="shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar evento?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ¿Estás seguro de que deseas desactivar el evento "{event.name}"?
+                            Esta acción desactivará el evento pero no eliminará las fotos asociadas.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </Card>

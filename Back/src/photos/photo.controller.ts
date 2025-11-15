@@ -211,8 +211,11 @@ export class PhotosController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('photographer', 'admin')
-  async deletePhoto(@Param('id') id: string): Promise<{ message: string }> {
-    await this.photosService.remove(id);
+  async deletePhoto(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+  ): Promise<{ message: string }> {
+    await this.photosService.remove(id, user.id, user.role);
     return { message: 'Photo deleted successfully' };
   }
 }

@@ -345,7 +345,11 @@ export class PhotosService {
     }
   }
 
-  async remove(id: string): Promise<void> {
+  /**
+   * 🗑️ Eliminar foto con validación de permisos
+   * Solo el dueño de la foto o un admin pueden eliminarla
+   */
+  async remove(id: string, userId?: string, userRole?: string): Promise<void> {
     const photo = await this.photoRepository.findOne({
       where: { id },
     });
@@ -353,6 +357,18 @@ export class PhotosService {
     if (!photo) {
       throw new NotFoundException(`Photo with ID ${id} not found`);
     }
+
+    // 🔐 VALIDACIÓN DE PERMISOS: Solo el dueño o admin pueden eliminar
+    if (userId && userRole !== 'admin') {
+      if (photo.uploadedBy !== userId) {
+        this.logger.warn(
+          `User ${userId} attempted to delete photo ${id} owned by ${photo.uploadedBy}`,
+        );
+        throw new NotFoundException(`Photo with ID ${id} not found`); // No revelar que existe
+      }
+    }
+
+    this.logger.log(`Deleting photo ${id} (owned by ${photo.uploadedBy})...`);
 
     // Delete associated detections first (to avoid foreign key constraint violation)
     try {

@@ -16,10 +16,22 @@ import {
   XCircle,
   ArrowRight,
   BarChart3,
+  Trash2,
 } from "lucide-react"
 import Link from "next/link"
 import { photosApi, racesApi } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface Stats {
   totalPhotos: number
@@ -60,6 +72,8 @@ export default function PhotographerDashboardPage() {
     fetchData()
   }, [toast])
   const [recentPhotos, setRecentPhotos] = useState<any[]>([])
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchRecentPhotos = async () => {
@@ -76,6 +90,61 @@ export default function PhotographerDashboardPage() {
     }
     fetchRecentPhotos()
   }, [])
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      setDeletingEventId(eventId)
+      await racesApi.delete(eventId, false) // Soft delete por defecto
+      toast({
+        title: "Evento eliminado",
+        description: "El evento ha sido desactivado exitosamente",
+      })
+      // Recargar eventos
+      const data = await racesApi.getAll()
+      setEvents(data || [])
+      // Recargar stats
+      const statsData = await photosApi.getStats()
+      setStats(statsData)
+    } catch (error: any) {
+      console.error("Error deleting event:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el evento",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingEventId(null)
+    }
+  }
+
+  const handleDeletePhoto = async (photoId: string) => {
+    try {
+      setDeletingPhotoId(photoId)
+      await photosApi.delete(photoId)
+      toast({
+        title: "Foto eliminada",
+        description: "La foto ha sido eliminada exitosamente",
+      })
+      // Recargar fotos
+      const allPhotos = await photosApi.getAll()
+      const sorted = allPhotos
+        .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 6)
+      setRecentPhotos(sorted)
+      // Recargar stats
+      const statsData = await photosApi.getStats()
+      setStats(statsData)
+    } catch (error: any) {
+      console.error("Error deleting photo:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar la foto",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingPhotoId(null)
+    }
+  }
 
   return (
     <div className="container py-8 space-y-6">
@@ -255,6 +324,35 @@ export default function PhotographerDashboardPage() {
                                 Subir Fotos
                               </Link>
                             </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={deletingEventId === event.id}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar evento?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    ¿Estás seguro de que deseas desactivar el evento "{event.name}"?
+                                    Esta acción desactivará el evento pero no eliminará las fotos asociadas.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </div>
                       </Card>
@@ -342,11 +440,42 @@ export default function PhotographerDashboardPage() {
                           <span className="text-muted-foreground">
                             {photo.detections?.length || 0} dorsales
                           </span>
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/fotografo/fotos/${photo.id}`}>
-                              Ver Detalles
-                            </Link>
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/fotografo/fotos/${photo.id}`}>
+                                Ver Detalles
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={deletingPhotoId === photo.id}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar foto?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    ¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeletePhoto(photo.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </div>
                     </Card>

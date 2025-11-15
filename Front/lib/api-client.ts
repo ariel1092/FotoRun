@@ -144,6 +144,11 @@ export const racesApi = {
   create(raceData: { name: string; date: string; location?: string; discipline?: string }) {
     return apiClient.post("/races", raceData)
   },
+
+  delete(id: string, hardDelete: boolean = false) {
+    const queryParam = hardDelete ? "?hardDelete=true" : ""
+    return apiClient.delete(`/races/${id}${queryParam}`)
+  },
 }
 
 export const photosApi = {
@@ -196,5 +201,9 @@ export const photosApi = {
 
   getAll() {
     return apiClient.get("/photos")
+  },
+
+  delete(id: string) {
+    return apiClient.delete(`/photos/${id}`)
   },
 }

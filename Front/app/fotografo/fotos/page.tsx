@@ -15,10 +15,22 @@ import {
   Filter,
   Download,
   Eye,
+  Trash2,
 } from "lucide-react"
 import Link from "next/link"
 import { photosApi } from "@/lib/api-client"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Select,
   SelectContent,
@@ -33,6 +45,7 @@ export default function PhotosPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -117,6 +130,28 @@ export default function PhotosPage() {
             Pendiente
           </Badge>
         )
+    }
+  }
+
+  const handleDeletePhoto = async (photoId: string) => {
+    try {
+      setDeletingPhotoId(photoId)
+      await photosApi.delete(photoId)
+      toast({
+        title: "Foto eliminada",
+        description: "La foto ha sido eliminada exitosamente",
+      })
+      // Recargar fotos
+      await fetchPhotos()
+    } catch (error: any) {
+      console.error("Error deleting photo:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar la foto",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingPhotoId(null)
     }
   }
 
@@ -229,6 +264,35 @@ export default function PhotosPage() {
                         <Download className="h-4 w-4" />
                       </a>
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={deletingPhotoId === photo.id}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar foto?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            ¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
                 <div className="absolute top-2 right-2">
