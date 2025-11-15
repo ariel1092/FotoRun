@@ -34,8 +34,8 @@ export class PhotoProcessor {
       // Update photo status to processing
       await this.photosService.updateProcessingStatus(photoId, 'processing');
 
-      // Process photo (detect bibs)
-      await this.photosService.processPhoto(photoId, photoUrl);
+      // Process photo (detect bibs) - skip status update since we already did it
+      await this.photosService.processPhoto(photoId, photoUrl, true);
 
       // Update photo status to completed
       await this.photosService.updateProcessingStatus(photoId, 'completed');
@@ -81,7 +81,7 @@ export class PhotoProcessor {
       try {
         // Process each photo individually
         await this.photosService.updateProcessingStatus(photoData.photoId, 'processing');
-        await this.photosService.processPhoto(photoData.photoId, photoData.photoUrl);
+        await this.photosService.processPhoto(photoData.photoId, photoData.photoUrl, true);
         await this.photosService.updateProcessingStatus(photoData.photoId, 'completed');
         
         results.push({ photoId: photoData.photoId, success: true });
