@@ -148,39 +148,56 @@ export class BibDetectionService {
         this.logger.log(`${reason}`);
         
         try {
-          const ocrDetections = await this.scanImageWithOCR(imageBuffer, opts);
+          // 🔧 CRÍTICO: Usar Google Vision si está disponible (más preciso)
+          // Si no, usar Tesseract pero solo en regiones específicas
+          let ocrDetections: EnhancedDetection[] = [];
+          
+          if (this.bibOCRService.isGoogleVisionEnabled()) {
+            this.logger.log('🔍 Usando Google Vision para escaneo completo (más preciso)...');
+            // Google Vision es más preciso, usarlo primero
+            const visionResult = await this.scanImageWithGoogleVision(imageBuffer, opts);
+            if (visionResult && visionResult.length > 0) {
+              ocrDetections = visionResult;
+              this.logger.log(`✅ Google Vision encontró ${ocrDetections.length} dorsales: ${ocrDetections.map(d => d.bibNumber).join(', ')}`);
+            }
+          }
+          
+          // Si Google Vision no está disponible o no encontró nada, usar Tesseract
+          if (ocrDetections.length === 0) {
+            ocrDetections = await this.scanImageWithOCR(imageBuffer, opts);
+          }
           
           if (ocrDetections.length > 0) {
-            // 🔧 FILTRADO ESTRICTO: Solo agregar números que:
-            // 1. No están ya detectados por Roboflow
-            // 2. Tienen confianza razonable (> 0.5)
+            // 🔧 FILTRADO MUY ESTRICTO: Solo agregar números que:
+            // 1. Están en la región del torso (20-65% de altura)
+            // 2. Tienen confianza alta (> 0.7)
             // 3. Son válidos según priors de dominio
+            // 4. NO están ya detectados por Roboflow
             const validOCRDetections = ocrDetections.filter(ocrDet => {
               // Validación básica
               if (!this.isValidBibNumber(ocrDet.bibNumber) || this.looksLikeYear(ocrDet.bibNumber)) {
                 return false;
               }
               
-              // 🔧 MEJORA: Priorizar números de 4 dígitos del OCR completo sobre detecciones cortas de Roboflow
-              // Si el OCR completo encontró un número de 4 dígitos, es muy probable que sea correcto
-              const is4Digits = ocrDet.bibNumber.length === 4;
-              const is3Digits = ocrDet.bibNumber.length === 3;
+              // 🔧 CRÍTICO: Solo aceptar números con confianza MUY alta del OCR completo
+              // El OCR completo es propenso a falsos positivos, así que ser muy estricto
+              const minConfidence = 0.75; // Requerir 75% de confianza mínimo
               
-              // Si ya tenemos una buena detección de Roboflow, ser estricto PERO...
-              if (hasGoodRoboflowDetection) {
-                // ...si el OCR completo encontró un número de 4 dígitos, priorizarlo
-                if (is4Digits) {
-                  // Números de 4 dígitos del OCR completo son muy confiables, aceptar con confianza > 0.5
-                  return ocrDet.confidence > 0.5 && 
-                         !enhancedDetections.some(existing => existing.bibNumber === ocrDet.bibNumber);
-                }
-                // Para otros números, requerir alta confianza
-                return ocrDet.confidence > 0.7 && 
-                       !enhancedDetections.some(existing => existing.bibNumber === ocrDet.bibNumber);
+              if (ocrDet.confidence < minConfidence) {
+                return false;
               }
               
-              // Si no hay buena detección de Roboflow, ser más permisivo pero aún filtrar
-              return ocrDet.confidence > 0.5;
+              // Verificar que no esté ya detectado
+              if (enhancedDetections.some(existing => existing.bibNumber === ocrDet.bibNumber)) {
+                return false;
+              }
+              
+              // Priorizar números de 3-4 dígitos
+              if (ocrDet.bibNumber.length < 3 || ocrDet.bibNumber.length > 4) {
+                return false;
+              }
+              
+              return true;
             });
             
             // 🔧 MEJORA: Merge inteligente que prioriza números más largos y números en rangos comunes
@@ -721,8 +738,59 @@ export class BibDetectionService {
   }
 
   /**
+   * 🔧 NUEVO: Escanear imagen con Google Vision (más preciso que Tesseract)
+   */
+  private async scanImageWithGoogleVision(
+    imageBuffer: Buffer,
+    opts: DetectionOptions,
+  ): Promise<EnhancedDetection[]> {
+    try {
+      if (!this.bibOCRService.isGoogleVisionEnabled()) {
+        return [];
+      }
+
+      this.logger.log('🔍 Usando Google Vision para escaneo completo de imagen...');
+      
+      // Usar Google Vision para extraer todos los números de dorsal
+      const visionNumbers = await this.bibOCRService['googleVisionService']?.extractAllBibNumbers(imageBuffer);
+      
+      if (!visionNumbers || visionNumbers.length === 0) {
+        return [];
+      }
+
+      // Convertir a EnhancedDetection format
+      const detections: EnhancedDetection[] = visionNumbers.map((bibNumber: string) => ({
+        bibNumber,
+        confidence: 0.85, // Google Vision es generalmente muy confiable
+        detectionConfidence: 0.3, // Baja porque no viene de detección de objetos
+        ocrConfidence: 0.85,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        metadata: {
+          class_id: 'google_vision',
+          detection_id: 'gv_' + Date.now(),
+          method: 'google_vision_full_scan',
+        },
+        ocrResult: {
+          rawText: bibNumber,
+          alternatives: [],
+        },
+      }));
+
+      this.logger.log(`✅ Google Vision encontró ${detections.length} dorsales: ${detections.map(d => d.bibNumber).join(', ')}`);
+      return detections;
+    } catch (error) {
+      this.logger.error(`Error en escaneo con Google Vision: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Scan entire image with OCR to find ALL bib numbers
    * Uses multiple strategies: Google Vision, full-image OCR, and grid scanning
+   * 🔧 MEJORA: Ahora solo se usa cuando NO hay detecciones de Roboflow
    */
   private async scanImageWithOCR(
     imageBuffer: Buffer,
