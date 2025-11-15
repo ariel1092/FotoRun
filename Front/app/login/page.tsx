@@ -66,9 +66,6 @@ export default function LoginPage() {
         <div className="container max-w-md">
           <Card className="p-8">
             <div className="mb-8 text-center space-y-2">
-              <div className="flex justify-center mb-4">
-                <img src="/jerpro-logo.png" alt="JERPRO" className="h-12" />
-              </div>
               <h1 className="text-2xl font-bold text-foreground">Bienvenido</h1>
               <p className="text-sm text-muted-foreground">Ingresá a tu cuenta para continuar</p>
             </div>

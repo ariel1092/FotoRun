@@ -20,3 +20,4 @@ services:
       - key: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
         sync: false  # Opcional - solo si usas Cloudinary
 
+

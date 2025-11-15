@@ -58,3 +58,4 @@ THROTTLE_LIMIT=100
 3. Busca **"Internal Database URL"** o **"Internal Redis URL"**
 4. Copia esa URL completa
 
+
