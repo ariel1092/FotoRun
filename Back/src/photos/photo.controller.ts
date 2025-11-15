@@ -207,6 +207,39 @@ export class PhotosController {
       this.logger.log(
         `${uploadedPhotos.length} photos added to processing queue`,
       );
+      
+      // Check if worker is active - if not, process directly as fallback
+      const queueStats = await this.getQueueService().getQueueStats();
+      this.logger.log(
+        `Queue stats after adding jobs: Waiting: ${queueStats.waiting}, Active: ${queueStats.active}, Completed: ${queueStats.completed}, Failed: ${queueStats.failed}`,
+      );
+      
+      // If there are many jobs waiting and none active, worker might not be running
+      // Process directly as fallback after a short delay
+      if (queueStats.waiting > 5 && queueStats.active === 0) {
+        this.logger.warn(
+          `⚠️ Worker appears to be inactive (${queueStats.waiting} waiting, ${queueStats.active} active). Processing directly as fallback...`,
+        );
+        // Process in background without blocking the response
+        setTimeout(() => {
+          uploadedPhotos.forEach((photo) => {
+            this.photosService
+              .processPhoto(photo.id, photo.url, true) // Skip status update since we already did it
+              .catch((processError) => {
+                this.logger.error(
+                  `Error processing photo ${photo.id} directly: ${processError.message}`,
+                );
+                // Update status to failed
+                this.photosService
+                  .updateProcessingStatus(photo.id, 'failed', processError.message)
+                  .catch(() => {
+                    // Ignore errors updating status
+                  });
+              });
+          });
+        }, 5000); // Wait 5 seconds to see if worker picks it up
+      }
+      
       // Reload photos to get updated status
       uploadedPhotos = await Promise.all(
         uploadedPhotos.map((photo) => this.photosService.findOne(photo.id)),
